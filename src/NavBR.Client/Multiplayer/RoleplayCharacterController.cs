@@ -104,6 +104,7 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
     private bool _jumpActive;
     private bool _focusStopApplied;
     private bool _freeRoamEnabled;
+    private bool _cameraRelativeMovementActive;
 
     public event Action<RoleplayCharacterState?>? StateChanged;
     public event Action<RoleplayCharacterState>? NetworkStateReady;
@@ -132,6 +133,8 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
 
     public bool IsActive => _state?.IsActive == true;
     public bool IsGroundFollowing => _groundFollowing;
+    public bool CameraRelativeMovementActive =>
+        _cameraRelativeMovementActive;
     public bool FreeRoamEnabled => _freeRoamEnabled;
 
     public void SetFreeRoamEnabled(bool enabled)
@@ -580,6 +583,7 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
             _jumpRequested = false;
             _jumpActive = false;
             _focusStopApplied = false;
+            _cameraRelativeMovementActive = false;
             _groundFollowing = false;
             _groundHeightCalibrated = false;
             _groundHeightOffset = 0d;
@@ -701,6 +705,7 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
                 _verticalVelocityMps = 0d;
                 _jumpRequested = false;
                 _jumpActive = false;
+                _cameraRelativeMovementActive = false;
                 _lastTickUtc = DateTimeOffset.UtcNow;
 
                 // Key-up messages may happen after OMSI loses focus and are then
@@ -822,6 +827,7 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
             var hasCameraHeading = TryResolveCameraHeading(
                 _cameraProjectionSource(),
                 out var cameraHeading);
+            _cameraRelativeMovementActive = hasCameraHeading;
 
             if (hasCameraHeading)
             {
