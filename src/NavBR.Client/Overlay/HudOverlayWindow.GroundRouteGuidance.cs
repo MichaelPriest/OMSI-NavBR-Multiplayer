@@ -148,14 +148,17 @@ public partial class HudOverlayWindow
             currentWorldY,
             tileSize,
             telemetry.HeadingDegrees);
-        var projectionHeadingDegrees =
-            ResolveGroundGuidanceProjectionHeading(
-                nearestIndex,
-                routeDirection,
-                currentWorldX,
-                currentWorldY,
-                tileSize,
-                telemetry.HeadingDegrees);
+
+        // Forza-style guidance must stay locked to real OMSI world geometry.
+        // Never fall back to a screen-space fake perspective: if the native
+        // camera projection is unavailable/stale, hide the arrows instead of
+        // drawing floating guidance over the HUD.
+        if (!hasFreshNativeProjection)
+        {
+            SetGroundRouteGuidanceStatus("projeção 3D nativa indisponível");
+            HideGroundRouteGuidance();
+            return;
+        }
 
         canvas.Visibility = Visibility.Visible;
         var used = 0;
@@ -209,64 +212,57 @@ public partial class HudOverlayWindow
             var nextDeltaX = nextWorldX - currentWorldX;
             var nextDeltaY = nextWorldY - currentWorldY;
 
-            var projected = false;
-            double screenX = 0d;
-            double screenY = 0d;
-            double nextScreenX = 0d;
-            double nextScreenY = 0d;
+            var aheadX = localX + deltaX;
+            var aheadZ = localZ + deltaY;
+            var directionX = localX + nextDeltaX;
+            var directionZ = localZ + nextDeltaY;
 
-            if (hasFreshNativeProjection)
+            var arrowGroundY = localY;
+            if (OmsiSplineGroundHeightResolver.TryResolve(
+                    map,
+                    telemetry,
+                    aheadX,
+                    aheadZ,
+                    localY,
+                    out var resolvedArrowGroundY))
             {
-                var aheadX = localX + deltaX;
-                var aheadZ = localZ + deltaY;
-                var directionX = localX + nextDeltaX;
-                var directionZ = localZ + nextDeltaY;
-                var height = localY + 0.08d;
-
-                projected =
-                    TryProjectToViewport(
-                        new Vector3(
-                            (float)aheadX,
-                            (float)height,
-                            (float)aheadZ),
-                        projection!.Value,
-                        viewport,
-                        out screenX,
-                        out screenY) &&
-                    TryProjectToViewport(
-                        new Vector3(
-                            (float)directionX,
-                            (float)height,
-                            (float)directionZ),
-                        projection.Value,
-                        viewport,
-                        out nextScreenX,
-                        out nextScreenY);
+                arrowGroundY = resolvedArrowGroundY;
             }
 
-            // Camera matrices are available only for the exact OMSI 2.3.004
-            // memory profile, and openOMSI currently does not export them.
-            // Keep Forza-style guidance usable by projecting the actual route
-            // into a heading-relative road perspective when native projection
-            // is unavailable or rejects a point.
-            if (!projected)
+            var directionGroundY = arrowGroundY;
+            if (OmsiSplineGroundHeightResolver.TryResolve(
+                    map,
+                    telemetry,
+                    directionX,
+                    directionZ,
+                    arrowGroundY,
+                    out var resolvedDirectionGroundY))
             {
-                projected =
-                    TryProjectGroundGuidancePerspective(
-                        deltaX,
-                        deltaY,
-                        projectionHeadingDegrees,
-                        viewport,
-                        out screenX,
-                        out screenY) &&
-                    TryProjectGroundGuidancePerspective(
-                        nextDeltaX,
-                        nextDeltaY,
-                        projectionHeadingDegrees,
-                        viewport,
-                        out nextScreenX,
-                        out nextScreenY);
+                directionGroundY = resolvedDirectionGroundY;
             }
+
+            // Keep the arrow a few centimetres above the physical spline to
+            // avoid z-fighting while remaining visually attached to the road.
+            const double GroundLiftMeters = 0.045d;
+            var projected =
+                TryProjectToViewport(
+                    new Vector3(
+                        (float)aheadX,
+                        (float)(arrowGroundY + GroundLiftMeters),
+                        (float)aheadZ),
+                    projection!.Value,
+                    viewport,
+                    out var screenX,
+                    out var screenY) &&
+                TryProjectToViewport(
+                    new Vector3(
+                        (float)directionX,
+                        (float)(directionGroundY + GroundLiftMeters),
+                        (float)directionZ),
+                    projection.Value,
+                    viewport,
+                    out var nextScreenX,
+                    out var nextScreenY);
 
             if (!projected)
             {
@@ -323,7 +319,7 @@ public partial class HudOverlayWindow
         else
         {
             SetGroundRouteGuidanceStatus(
-                $"{used} setas visíveis • {(hasFreshNativeProjection ? "3D nativo/fallback" : "perspectiva fallback")} • rota {_routeTracePoints.Count} pts");
+                $"{used} setas na via • spline + projeção 3D nativa • rota {_routeTracePoints.Count} pts");
         }
     }
 
@@ -396,106 +392,6 @@ public partial class HudOverlayWindow
         }
 
         return reverseScore > forwardScore ? -1 : 1;
-    }
-
-    private double ResolveGroundGuidanceProjectionHeading(
-        int nearestIndex,
-        int routeDirection,
-        double currentWorldX,
-        double currentWorldY,
-        double tileSize,
-        double headingDegrees)
-    {
-        if (!double.IsFinite(headingDegrees))
-        {
-            return 0d;
-        }
-
-        var nextIndex = nearestIndex + routeDirection;
-        if (nextIndex < 0 || nextIndex >= _routeTracePoints.Count)
-        {
-            return headingDegrees;
-        }
-
-        var next = _routeTracePoints[nextIndex];
-        var dx =
-            next.GridX * tileSize + next.TileX -
-            currentWorldX;
-        var dy =
-            next.GridY * tileSize + next.TileY -
-            currentWorldY;
-        if (!double.IsFinite(dx) || !double.IsFinite(dy))
-        {
-            return headingDegrees;
-        }
-
-        var radians = headingDegrees * Math.PI / 180d;
-        var forward =
-            dx * Math.Sin(radians) +
-            dy * Math.Cos(radians);
-
-        return forward < -0.5d
-            ? (headingDegrees + 180d) % 360d
-            : headingDegrees;
-    }
-
-    private static bool TryProjectGroundGuidancePerspective(
-        double deltaWorldX,
-        double deltaWorldY,
-        double headingDegrees,
-        ClientViewport viewport,
-        out double screenX,
-        out double screenY)
-    {
-        screenX = 0d;
-        screenY = 0d;
-
-        if (!double.IsFinite(deltaWorldX) ||
-            !double.IsFinite(deltaWorldY) ||
-            !double.IsFinite(headingDegrees))
-        {
-            return false;
-        }
-
-        var radians = headingDegrees * Math.PI / 180d;
-        var forward =
-            deltaWorldX * Math.Sin(radians) +
-            deltaWorldY * Math.Cos(radians);
-        var right =
-            deltaWorldX * Math.Cos(radians) -
-            deltaWorldY * Math.Sin(radians);
-
-        // Do not paint the route behind the driver's viewpoint.
-        if (forward < 2d ||
-            forward > GroundGuidanceMaxDistanceMeters * 1.20d)
-        {
-            return false;
-        }
-
-        var depth = Math.Clamp(
-            forward / GroundGuidanceMaxDistanceMeters,
-            0d,
-            1d);
-        var horizonY = viewport.Top + viewport.Height * 0.48d;
-        var nearY = viewport.Top + viewport.Height * 0.91d;
-        screenY =
-            nearY +
-            (horizonY - nearY) * Math.Sqrt(depth);
-
-        // Perspective widens close to the bus and narrows toward the horizon.
-        var focal = viewport.Width * 0.72d;
-        screenX =
-            viewport.Left +
-            viewport.Width * 0.5d +
-            right / Math.Max(10d, forward) * focal;
-
-        var sideMargin = viewport.Width * 0.04d;
-        return double.IsFinite(screenX) &&
-               double.IsFinite(screenY) &&
-               screenX >= viewport.Left - sideMargin &&
-               screenX <= viewport.Right + sideMargin &&
-               screenY >= viewport.Top &&
-               screenY <= viewport.Bottom;
     }
 
     private int FindNearestGroundGuidanceRouteIndex(
