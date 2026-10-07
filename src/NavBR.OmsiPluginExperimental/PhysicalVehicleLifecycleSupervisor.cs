@@ -751,7 +751,8 @@ internal static class PhysicalVehicleLifecycleSupervisor
                 instanceId,
                 out var snapshot) ||
             snapshot.VarTableHash is not uint varTableHash ||
-            snapshot.Floats.Count == 0)
+            (snapshot.Floats.Count == 0 &&
+             snapshot.Strings.Count == 0))
         {
             return;
         }
@@ -759,15 +760,18 @@ internal static class PhysicalVehicleLifecycleSupervisor
         var count =
             OmsiNativeInterop.TryGetRoadVehiclePublicVarCount(
                 instance.VehiclePointer);
-        if (count <= 0)
+        if (snapshot.Floats.Count > 0)
         {
-            return;
-        }
+            if (count <= 0)
+            {
+                return;
+            }
 
-        var maxId = snapshot.Floats.Keys.Max();
-        if (maxId >= count)
-        {
-            return;
+            var maxId = snapshot.Floats.Keys.Max();
+            if (maxId >= count)
+            {
+                return;
+            }
         }
 
         var applied = 0;
@@ -806,7 +810,7 @@ internal static class PhysicalVehicleLifecycleSupervisor
         }
 
         var successKey =
-            $"{varTableHash:X8}:ok:{count}:{applied}";
+            $"{varTableHash:X8}:ok:{count}:{applied}:strings={snapshot.Strings.Count}";
         lock (Sync)
         {
             if (LastVarPinKey.TryGetValue(
@@ -826,7 +830,8 @@ internal static class PhysicalVehicleLifecycleSupervisor
         PluginLogWriter.Enqueue(
             $"physical-vars-pin id={instanceId} " +
             $"table={varTableHash:X8} status=active " +
-            $"vars={applied} publicVars={count}");
+            $"vars={applied} publicVars={count} " +
+            $"strings={snapshot.Strings.Count} stringMode=receive-only");
     }
 
     private static void RunRandomBusControlProbe(string instanceId)
