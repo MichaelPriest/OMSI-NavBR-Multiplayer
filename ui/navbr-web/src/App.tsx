@@ -68,6 +68,13 @@ const fallbackMultiplayer: NavBrMultiplayerState = {
   relayServerUrl: "https://omsi-navbr-multiplayer-server.onrender.com",
   physicalVehiclesEnabled: false,
   physicalVehiclesAvailable: false,
+  openOmsiV6: {
+    active: false,
+    isHost: false,
+    port: null,
+    sessionCode: null,
+    role: "offline"
+  },
   networkQuality: {
     level: "Unknown",
     roundTripMs: null,
@@ -4892,15 +4899,11 @@ function Multiplayer({
               : pick("Não sou o host", "Not the host", "No soy el host", "Nicht der Host", "Pas l’hôte")
         }</strong></div>
         <div className="metric"><small>{pick("TRANSPORTE", "TRANSPORT", "TRANSPORTE", "TRANSPORT", "TRANSPORT")}</small><strong>{
-          multiplayer.transportMode === "direct-host"
-            ? pick("Host direto", "Direct host", "Host directo", "Direkter Host", "Hôte direct")
-            : multiplayer.transportMode === "dedicated-server"
-              ? pick("Servidor dedicado online", "Online dedicated server", "Servidor dedicado online", "Dedizierter Online-Server", "Serveur dédié en ligne")
-              : multiplayer.transportMode === "relay"
-                ? pick("Servidor online", "Online server", "Servidor online", "Online-Server", "Serveur en ligne")
-              : multiplayer.transportMode === "remote-host"
-                ? pick("Conectado ao host", "Connected to host", "Conectado al host", "Mit Host verbunden", "Connecté à l’hôte")
-                : pick("Sem sessão", "No session", "Sin sesión", "Keine Sitzung", "Aucune session")
+          multiplayer.openOmsiV6.active
+            ? multiplayer.openOmsiV6.isHost
+              ? pick("openOMSI v6 · Host", "openOMSI v6 · Host", "openOMSI v6 · Host", "openOMSI v6 · Host", "openOMSI v6 · Hôte")
+              : pick("openOMSI v6 · Cliente", "openOMSI v6 · Client", "openOMSI v6 · Cliente", "openOMSI v6 · Client", "openOMSI v6 · Client")
+            : pick("Aguardando openOMSI v6", "Waiting for openOMSI v6", "Esperando openOMSI v6", "Warte auf openOMSI v6", "En attente d’openOMSI v6")
         }</strong></div>
       </section>
 
@@ -5318,7 +5321,21 @@ function Multiplayer({
                 <div><small>{pick("JOGADORES", "PLAYERS", "JUGADORES", "SPIELER", "JOUEURS")}</small><strong>{multiplayer.connected ? multiplayer.playerCount : "—"}</strong></div>
                 <div><small>{pick("DONO", "OWNER", "PROPIETARIO", "BESITZER", "PROPRIÉTAIRE")}</small><strong>{multiplayer.sessionAuthority.roomOwnerDisplayName || "—"}</strong></div>
                 <div><small>{pick("SERVIDOR", "SERVER", "SERVIDOR", "SERVER", "SERVEUR")}</small><strong>{multiplayer.serverUrl || serverUrl || "—"}</strong></div>
+                <div><small>{pick("FÍSICO", "PHYSICAL", "FÍSICO", "PHYSISCH", "PHYSIQUE")}</small><strong>{
+                  multiplayer.openOmsiV6.active
+                    ? multiplayer.openOmsiV6.isHost
+                      ? `openOMSI v6 · HOST · UDP ${multiplayer.openOmsiV6.port ?? "—"}`
+                      : pick("openOMSI v6 · CLIENTE", "openOMSI v6 · CLIENT", "openOMSI v6 · CLIENTE", "openOMSI v6 · CLIENT", "openOMSI v6 · CLIENT")
+                    : pick("OFFLINE", "OFFLINE", "OFFLINE", "OFFLINE", "HORS LIGNE")
+                }</strong></div>
               </div>
+
+              {multiplayer.openOmsiV6.sessionCode && (
+                <div className="invite-box compact-invite">
+                  <small>{pick("CÓDIGO OPENOMSI", "OPENOMSI CODE", "CÓDIGO OPENOMSI", "OPENOMSI-CODE", "CODE OPENOMSI")}</small>
+                  <code>{multiplayer.openOmsiV6.sessionCode}</code>
+                </div>
+              )}
 
               {multiplayer.transportMode === "dedicated-server" && (
                 <div className="room-status-note">
