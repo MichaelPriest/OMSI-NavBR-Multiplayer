@@ -96,15 +96,12 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
     {
         await DisconnectAsync();
 
-        // The WebView controller can exist without ever rendering the retired
-        // WPF window. Re-apply the persisted physical-bus preference at the
-        // actual connection boundary so a partial/hidden UI initialization
-        // can never leave settings=true while the runtime marker remains off.
-        if (ExperimentalFeatureFlags.PhysicalVehiclesEnabled !=
-            settings.ExperimentalPhysicalVehiclesEnabled)
+        // openOMSI v6 is the physical multiplayer authority. Keep the legacy
+        // marker enabled for native-write compatibility, but no longer let a
+        // historical UI preference disable remote buses.
+        if (!ExperimentalFeatureFlags.PhysicalVehiclesEnabled)
         {
-            ExperimentalFeatureFlags.SetPhysicalVehiclesEnabled(
-                settings.ExperimentalPhysicalVehiclesEnabled);
+            ExperimentalFeatureFlags.SetPhysicalVehiclesEnabled(true);
         }
 
         string hubUrl;
