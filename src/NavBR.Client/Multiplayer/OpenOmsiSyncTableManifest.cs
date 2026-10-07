@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using NavBR.Shared.OpenOmsi;
 
 namespace NavBR.Client.Multiplayer;
 
@@ -717,7 +718,7 @@ internal static class OpenOmsiSyncTableManifestBuilder
             var relative = raw
                 .Trim()
                 .Trim('"')
-                .Replace('\', Path.DirectorySeparatorChar)
+                .Replace('\\', Path.DirectorySeparatorChar)
                 .Replace('/', Path.DirectorySeparatorChar);
             return Path.GetFullPath(Path.Combine(directory, relative));
         }
