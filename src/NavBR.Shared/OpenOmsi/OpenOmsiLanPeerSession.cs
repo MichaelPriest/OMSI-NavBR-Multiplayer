@@ -67,6 +67,8 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
     public event Action<OpenOmsiLanVehicleInfo>? RemoteInfoReceived;
     public event Action<OpenOmsiLanVehicleState>? RemoteStateReceived;
     public event Action<OpenOmsiVarsFrame>? RemoteVarsReceived;
+    public event Action<OpenOmsiWorldFrame>? WorldFrameReceived;
+    public event Action<ushort, OpenOmsiWorldFrame>? ClientWorldFrameReceived;
     public event Action<ushort, string, string>? ChatReceived;
     public event Action<ushort, string>? CommandReceived;
     public event Action<ushort>? RemoteLeft;
@@ -346,6 +348,45 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
         return Array.Empty<OpenOmsiLanFootprint>();
     }
 
+    public async Task PublishWorldAsync(
+        OpenOmsiWorldFrame frame,
+        CancellationToken cancellationToken = default)
+    {
+        EnsureConnected();
+        ArgumentNullException.ThrowIfNull(frame);
+
+        var outgoing = IsHost
+            ? frame
+            : frame with
+            {
+                Cars = Array.Empty<OpenOmsiWorldCarState>(),
+                Lights = Array.Empty<OpenOmsiWorldLightState>(),
+                Gone = frame.Gone
+                    .Where(item => item.IsPerson)
+                    .ToArray(),
+                ParkedComplete = null,
+                ParkedMapIds = null
+            };
+
+        foreach (var packet in OpenOmsiWorldCodec.Encode(outgoing))
+        {
+            if (IsHost)
+            {
+                await BroadcastBytesAsync(
+                    packet,
+                    null,
+                    cancellationToken);
+            }
+            else if (_hostEndpoint is not null)
+            {
+                await SendBytesAsync(
+                    packet,
+                    _hostEndpoint,
+                    cancellationToken);
+            }
+        }
+    }
+
     public async Task PublishVarsAsync(
         OpenOmsiVarsFrame vars,
         CancellationToken cancellationToken = default)
@@ -604,6 +645,12 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
                 continue;
             }
 
+            if (received.Buffer[0] == OpenOmsiWorldCodec.Magic)
+            {
+                HandleWorld(received.Buffer, received.RemoteEndPoint);
+                continue;
+            }
+
             if (received.Buffer[0] == OpenOmsiLanProtocol.StateMagic)
             {
                 await HandleStateAsync(received.Buffer, received.RemoteEndPoint, cancellationToken);
@@ -628,6 +675,54 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
 
             await HandleTextAsync(text, received.RemoteEndPoint, cancellationToken);
         }
+    }
+
+    private void HandleWorld(
+        byte[] packet,
+        IPEndPoint from)
+    {
+        if (!OpenOmsiWorldCodec.TryDecode(
+                packet,
+                out var frame))
+        {
+            return;
+        }
+
+        if (IsHost)
+        {
+            var peer = _peers.Values.FirstOrDefault(
+                candidate => candidate.Endpoint.Equals(from));
+            if (peer is null)
+            {
+                return;
+            }
+
+            peer.LastSeenUtc = DateTimeOffset.UtcNow;
+            var clientFrame = frame with
+            {
+                Cars = Array.Empty<OpenOmsiWorldCarState>(),
+                Lights = Array.Empty<OpenOmsiWorldLightState>(),
+                Gone = frame.Gone
+                    .Where(item => item.IsPerson)
+                    .ToArray(),
+                ParkedComplete = null,
+                ParkedMapIds = null
+            };
+            ClientWorldFrameReceived?.Invoke(
+                peer.Id,
+                clientFrame);
+            return;
+        }
+
+        if (_hostEndpoint is null ||
+            !_hostEndpoint.Equals(from))
+        {
+            return;
+        }
+
+        _lastHostPacketUtc = DateTimeOffset.UtcNow;
+        _hostLostAtUtc = null;
+        WorldFrameReceived?.Invoke(frame);
     }
 
     private async Task HandleStateAsync(
