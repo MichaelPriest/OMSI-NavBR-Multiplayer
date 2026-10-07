@@ -22,6 +22,7 @@ EXPORTS
     NavBR_ReadRoadVehiclePublicVar
     NavBR_GetRoadVehicleStringVarCount
     NavBR_ReadRoadVehicleStringVarUtf16
+    NavBR_WriteRoadVehicleStringVarUtf16
     NavBR_WriteRoadVehiclePublicVar
     NavBR_IsRoadVehiclePointer
     NavBR_IsMapTileIndexValid
