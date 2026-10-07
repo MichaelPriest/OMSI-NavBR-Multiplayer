@@ -100,9 +100,14 @@ public static class OpenOmsiWorldCodec
             .ToArray();
         var people = frame.People
             .Where(person =>
-                person.PlaceKind is OpenOmsiWorldPersonPlaceKind.Vehicle or
-                    OpenOmsiWorldPersonPlaceKind.PlayerBus ||
-                Fits(anchorX, anchorY, anchorZ, person.X, person.Y, person.Z))
+                person.PlaceKind != OpenOmsiWorldPersonPlaceKind.Foot ||
+                Fits(
+                    anchorX,
+                    anchorY,
+                    anchorZ,
+                    person.X,
+                    person.Y,
+                    person.Z))
             .ToArray();
 
         var budget =
@@ -521,7 +526,7 @@ public static class OpenOmsiWorldCodec
             byte? waitingPlace = null;
             if (reader.Get(1) == 1)
             {
-                stop = unchecked((int)reader.Get(32));
+                stop = checked((long)reader.Get(32));
                 waitingPlace = checked((byte)reader.Get(8));
             }
 
