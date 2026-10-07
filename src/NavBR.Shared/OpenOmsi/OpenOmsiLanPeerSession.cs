@@ -68,6 +68,7 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
     public event Action<OpenOmsiLanVehicleState>? RemoteStateReceived;
     public event Action<OpenOmsiVarsFrame>? RemoteVarsReceived;
     public event Action<OpenOmsiWorldFrame>? WorldFrameReceived;
+    public event Action<OpenOmsiLanClock>? ClockReceived;
     public event Action<ushort, OpenOmsiWorldFrame>? ClientWorldFrameReceived;
     public event Action<ushort, string, string>? ChatReceived;
     public event Action<ushort, string>? CommandReceived;
@@ -850,6 +851,20 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
         {
             _lastHostPacketUtc = DateTimeOffset.UtcNow;
             _hostLostAtUtc = null;
+        }
+
+        if (!IsHost &&
+            _hostEndpoint?.Equals(from) == true &&
+            text.StartsWith("CLOCK|", StringComparison.Ordinal) &&
+            OpenOmsiLanProtocol.TryDecodeClock(
+                text,
+                out var clock))
+        {
+            World = clock.World;
+            _lastHostPacketUtc = DateTimeOffset.UtcNow;
+            _hostLostAtUtc = null;
+            ClockReceived?.Invoke(clock);
+            return;
         }
 
         if (text.StartsWith("INFO|", StringComparison.Ordinal) &&
