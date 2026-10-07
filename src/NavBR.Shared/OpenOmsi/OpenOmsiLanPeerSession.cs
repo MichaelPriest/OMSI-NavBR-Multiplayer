@@ -62,6 +62,7 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
 
     public event Action<OpenOmsiLanVehicleInfo>? RemoteInfoReceived;
     public event Action<OpenOmsiLanVehicleState>? RemoteStateReceived;
+    public event Action<OpenOmsiVarsFrame>? RemoteVarsReceived;
     public event Action<ushort>? RemoteLeft;
     public event Action<string>? NoteReceived;
 
@@ -252,6 +253,110 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
         _lastLocalStateUtc = DateTimeOffset.UtcNow;
     }
 
+
+    public async Task PublishVarsAsync(
+        OpenOmsiVarsFrame vars,
+        CancellationToken cancellationToken = default)
+    {
+        EnsureConnected();
+        if (vars.PlayerId != LocalPlayerId)
+        {
+            vars = vars with { PlayerId = LocalPlayerId };
+        }
+
+        foreach (var packet in EncodeVarsFrame(vars))
+        {
+            if (IsHost)
+            {
+                await BroadcastBytesAsync(packet, null, cancellationToken);
+            }
+            else
+            {
+                await SendBytesAsync(packet, _hostEndpoint!, cancellationToken);
+            }
+        }
+    }
+
+    private static IReadOnlyList<byte[]> EncodeVarsFrame(OpenOmsiVarsFrame frame)
+    {
+        var packets = new List<byte[]>();
+
+        if (frame.Floats.Count > 0)
+        {
+            var data = new List<byte>(OpenOmsiVarsCodec.MaxPayloadBytes);
+            data.AddRange(OpenOmsiVarsCodec.Header(frame.PlayerId, frame.TableHash, 0));
+            data.Add(0);
+            data.Add(0);
+            ushort count = 0;
+
+            foreach (var (index, value) in frame.Floats)
+            {
+                if (data.Count + 6 > OpenOmsiVarsCodec.MaxPayloadBytes)
+                {
+                    break;
+                }
+
+                data.Add((byte)index);
+                data.Add((byte)(index >> 8));
+                var bits = BitConverter.SingleToInt32Bits(value);
+                data.Add((byte)bits);
+                data.Add((byte)(bits >> 8));
+                data.Add((byte)(bits >> 16));
+                data.Add((byte)(bits >> 24));
+                count++;
+            }
+
+            if (count > 0)
+            {
+                data[OpenOmsiVarsCodec.HeaderSize] = (byte)count;
+                data[OpenOmsiVarsCodec.HeaderSize + 1] = (byte)(count >> 8);
+                packets.Add(data.ToArray());
+            }
+        }
+
+        if (frame.Strings.Count > 0)
+        {
+            var data = new List<byte>(OpenOmsiVarsCodec.MaxPayloadBytes);
+            data.AddRange(OpenOmsiVarsCodec.Header(frame.PlayerId, frame.TableHash, 2));
+            data.Add(0);
+            data.Add(0);
+            ushort count = 0;
+
+            foreach (var (index, raw) in frame.Strings)
+            {
+                var clean = new string((raw ?? string.Empty)
+                    .Where(ch => !char.IsControl(ch))
+                    .ToArray());
+                var bytes = Encoding.UTF8.GetBytes(clean);
+                if (bytes.Length > OpenOmsiVarsCodec.MaxTextBytes)
+                {
+                    bytes = bytes[..OpenOmsiVarsCodec.MaxTextBytes];
+                }
+
+                if (data.Count + 4 + bytes.Length > OpenOmsiVarsCodec.MaxPayloadBytes)
+                {
+                    break;
+                }
+
+                data.Add((byte)index);
+                data.Add((byte)(index >> 8));
+                data.Add((byte)bytes.Length);
+                data.Add((byte)(bytes.Length >> 8));
+                data.AddRange(bytes);
+                count++;
+            }
+
+            if (count > 0)
+            {
+                data[OpenOmsiVarsCodec.HeaderSize] = (byte)count;
+                data[OpenOmsiVarsCodec.HeaderSize + 1] = (byte)(count >> 8);
+                packets.Add(data.ToArray());
+            }
+        }
+
+        return packets;
+    }
+
     public async Task LeaveAsync(CancellationToken cancellationToken = default)
     {
         if (!IsRunning || LocalPlayerId == 0)
@@ -307,6 +412,12 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
                 continue;
             }
 
+            if (received.Buffer[0] == OpenOmsiVarsCodec.Magic)
+            {
+                await HandleVarsAsync(received.Buffer, received.RemoteEndPoint, cancellationToken);
+                continue;
+            }
+
             string text;
             try
             {
@@ -355,6 +466,43 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
             _hostLostAtUtc = null;
             RemoteStateReceived?.Invoke(state);
         }
+    }
+
+
+    private async Task HandleVarsAsync(
+        byte[] packet,
+        IPEndPoint from,
+        CancellationToken cancellationToken)
+    {
+        if (!OpenOmsiVarsCodec.TryDecode(packet, out var vars))
+        {
+            return;
+        }
+
+        if (IsHost)
+        {
+            if (!_peers.TryGetValue(vars.PlayerId, out var peer) ||
+                !peer.Endpoint.Equals(from))
+            {
+                return;
+            }
+
+            peer.LastSeenUtc = DateTimeOffset.UtcNow;
+            RemoteVarsReceived?.Invoke(vars);
+            await BroadcastBytesAsync(packet, vars.PlayerId, cancellationToken);
+            return;
+        }
+
+        if (_hostEndpoint is null ||
+            !_hostEndpoint.Equals(from) ||
+            vars.PlayerId == LocalPlayerId)
+        {
+            return;
+        }
+
+        _lastHostPacketUtc = DateTimeOffset.UtcNow;
+        _hostLostAtUtc = null;
+        RemoteVarsReceived?.Invoke(vars);
     }
 
     private async Task HandleTextAsync(
