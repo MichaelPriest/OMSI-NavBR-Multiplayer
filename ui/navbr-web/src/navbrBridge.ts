@@ -811,6 +811,7 @@ export interface NavBrRoleplayState {
   runtimeAvailable: boolean;
   active: boolean;
   terrainFollowing: boolean;
+  cameraRelativeMovement: boolean;
   nativeAnimation?: {
     aiMode: number;
     aiModeEx: number;
