@@ -217,8 +217,8 @@ jobs:
             "The correct entry point remains openomsi.exe.",
             "Run Install-NavBROpenOmsiHost.ps1 against the existing openOMSI folder.",
             "The installer backs up the original executable as openomsi.navbr-original.exe and replaces openomsi.exe with this NavBR test host.",
-            "Start openomsi.exe normally and use Ctrl+Alt+N to open the NavBR panel.",
-            "Esc closes the NavBR panel first.",
+            "Start openomsi.exe normally and use F10 to open the NavBR panel.",
+            "Esc remains native to openOMSI.",
             "Run Restore-OriginalOpenOmsiHost.ps1 to restore the original executable."
           ) | Set-Content -LiteralPath (Join-Path $hostArtifact "README-NAVBR-HOST-TEST.txt") -Encoding UTF8
 
@@ -323,8 +323,8 @@ jobs:
             "1. Run Install-NavBROpenOmsiHost.ps1 against the existing openOMSI folder.",
             "2. Run Plugin\Install-NavBROpenOmsiPlugin.ps1 against the same openOMSI folder.",
             "3. Start openomsi.exe normally.",
-            "4. Press Ctrl+Alt+N to open/close the NavBR panel.",
-            "5. Esc closes the NavBR panel before the normal game menu.",
+            "4. Press F10 to open/close the NavBR panel.",
+            "5. Esc remains native to openOMSI.",
             "",
             "Restore-OriginalOpenOmsiHost.ps1 restores the original executable."
           ) | Set-Content -LiteralPath (Join-Path $bundle "LEIA-ME-TESTE.txt") -Encoding UTF8
