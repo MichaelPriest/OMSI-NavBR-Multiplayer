@@ -71,6 +71,62 @@ internal static class RemoteVehicleVarsRegistry
         return true;
     }
 
+    internal static bool TryApplyVisualState(
+        PluginBridgeMessage message,
+        out string? rejectionReason)
+    {
+        rejectionReason = null;
+        var playerId = message.PlayerId?.Trim();
+        if (string.IsNullOrWhiteSpace(playerId) ||
+            message.SyncTableHash is not uint tableHash ||
+            tableHash == 0)
+        {
+            rejectionReason = "missing-player-or-table";
+            return false;
+        }
+
+        var lamps = message.SyncLamps ?? [];
+        var switches = message.SyncSwitches ?? [];
+        var values = message.SyncValues ?? [];
+        if (lamps.Length > 127 ||
+            switches.Length > 31 ||
+            values.Length > 63 ||
+            lamps.Any(value => !float.IsFinite(value)) ||
+            switches.Any(value => !float.IsFinite(value)) ||
+            values.Any(value => !float.IsFinite(value)))
+        {
+            rejectionReason = "invalid-visual-sync-shape";
+            return false;
+        }
+
+        States.AddOrUpdate(
+            playerId,
+            _ => RemoteVehicleVarsSnapshot.Empty(tableHash) with
+            {
+                Lamps = lamps.ToArray(),
+                Switches = switches.ToArray(),
+                Values = values.ToArray(),
+                UpdatedAtTick = Environment.TickCount64
+            },
+            (_, current) =>
+            {
+                if (current.TableHash != tableHash)
+                {
+                    current = RemoteVehicleVarsSnapshot.Empty(tableHash);
+                }
+
+                return current with
+                {
+                    Lamps = lamps.ToArray(),
+                    Switches = switches.ToArray(),
+                    Values = values.ToArray(),
+                    UpdatedAtTick = Environment.TickCount64
+                };
+            });
+
+        return true;
+    }
+
     internal static bool TryGet(
         string? playerId,
         out RemoteVehicleVarsSnapshot snapshot)
@@ -94,6 +150,9 @@ internal static class RemoteVehicleVarsRegistry
         uint TableHash,
         IReadOnlyDictionary<ushort, float> Floats,
         IReadOnlyDictionary<ushort, string> Strings,
+        float[] Lamps,
+        float[] Switches,
+        float[] Values,
         long UpdatedAtTick)
     {
         internal static RemoteVehicleVarsSnapshot Empty(uint tableHash) =>
@@ -101,6 +160,9 @@ internal static class RemoteVehicleVarsRegistry
                 tableHash,
                 new Dictionary<ushort, float>(),
                 new Dictionary<ushort, string>(),
+                [],
+                [],
+                [],
                 Environment.TickCount64);
 
         internal RemoteVehicleVarsSnapshot Apply(
@@ -125,6 +187,9 @@ internal static class RemoteVehicleVarsRegistry
                 TableHash,
                 floats,
                 strings,
+                Lamps,
+                Switches,
+                Values,
                 Environment.TickCount64);
         }
     }
