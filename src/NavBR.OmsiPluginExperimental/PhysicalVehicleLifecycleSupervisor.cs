@@ -34,6 +34,8 @@ internal static class PhysicalVehicleLifecycleSupervisor
         new(StringComparer.OrdinalIgnoreCase);
     private static readonly Dictionary<string, string> LastVarPinKey =
         new(StringComparer.OrdinalIgnoreCase);
+    private static readonly Dictionary<string, string> LastVisualPinKey =
+        new(StringComparer.OrdinalIgnoreCase);
 
     public static int DesiredCount
     {
@@ -390,6 +392,7 @@ internal static class PhysicalVehicleLifecycleSupervisor
             PendingRemovals.Clear();
             LastVarProbeKey.Clear();
             LastVarPinKey.Clear();
+            LastVisualPinKey.Clear();
         }
 
         Interlocked.Exchange(ref _resetRequested, 0);
@@ -482,6 +485,7 @@ internal static class PhysicalVehicleLifecycleSupervisor
                 {
                     ProbeRemoteScriptVarBounds(entry.InstanceId, instance);
                     PinRemoteScriptVars(entry.InstanceId, instance);
+                    PinRemoteVisualSyncVars(entry.InstanceId, instance);
                     if (now < entry.NextAttemptTickMs ||
                         !entry.HasPendingTargetUpdate ||
                         !TryBuildInternalUpdate(
@@ -832,6 +836,139 @@ internal static class PhysicalVehicleLifecycleSupervisor
             $"table={varTableHash:X8} status=active " +
             $"vars={applied} publicVars={count} " +
             $"strings={snapshot.Strings.Count} stringMode=receive-only");
+    }
+
+    private static void PinRemoteVisualSyncVars(
+        string instanceId,
+        PhysicalVehicleInstance instance)
+    {
+        if (!RemoteVehicleVarsRegistry.TryGet(
+                instanceId,
+                out var snapshot) ||
+            snapshot.SyncTableHash is not uint syncTableHash)
+        {
+            return;
+        }
+
+        var total =
+            snapshot.Lamps.Length +
+            snapshot.Switches.Length +
+            snapshot.Values.Length +
+            snapshot.Doors.Length;
+        if (total == 0)
+        {
+            return;
+        }
+
+        var count =
+            OmsiNativeInterop.TryGetRoadVehiclePublicVarCount(
+                instance.VehiclePointer);
+        if (count <= 0)
+        {
+            return;
+        }
+
+        bool Apply(
+            IReadOnlyList<ushort> ids,
+            IReadOnlyList<float> values,
+            string kind,
+            ref int applied)
+        {
+            if (ids.Count != values.Count)
+            {
+                return false;
+            }
+
+            for (var i = 0; i < ids.Count; i++)
+            {
+                var id = ids[i];
+                var value = values[i];
+                if (id >= count ||
+                    !float.IsFinite(value) ||
+                    !OmsiNativeInterop.TryWriteRoadVehiclePublicVar(
+                        instance.VehiclePointer,
+                        id,
+                        value))
+                {
+                    var failedKey =
+                        $"{syncTableHash:X8}:{kind}:fail:{id}:{count}";
+                    lock (Sync)
+                    {
+                        if (!LastVisualPinKey.TryGetValue(
+                                instanceId,
+                                out var previous) ||
+                            !string.Equals(
+                                previous,
+                                failedKey,
+                                StringComparison.Ordinal))
+                        {
+                            LastVisualPinKey[instanceId] =
+                                failedKey;
+                            PluginLogWriter.Enqueue(
+                                $"physical-visual-pin id={instanceId} " +
+                                $"table={syncTableHash:X8} " +
+                                $"status=write-failed kind={kind} " +
+                                $"var={id} publicVars={count}");
+                        }
+                    }
+
+                    return false;
+                }
+
+                applied++;
+            }
+
+            return true;
+        }
+
+        var applied = 0;
+        if (!Apply(
+                snapshot.LampIds,
+                snapshot.Lamps,
+                "lamp",
+                ref applied) ||
+            !Apply(
+                snapshot.SwitchIds,
+                snapshot.Switches,
+                "switch",
+                ref applied) ||
+            !Apply(
+                snapshot.ValueIds,
+                snapshot.Values,
+                "value",
+                ref applied) ||
+            !Apply(
+                snapshot.DoorIds,
+                snapshot.Doors,
+                "door",
+                ref applied))
+        {
+            return;
+        }
+
+        var successKey =
+            $"{syncTableHash:X8}:ok:{count}:{applied}";
+        lock (Sync)
+        {
+            if (LastVisualPinKey.TryGetValue(
+                    instanceId,
+                    out var previous) &&
+                string.Equals(
+                    previous,
+                    successKey,
+                    StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            LastVisualPinKey[instanceId] =
+                successKey;
+        }
+
+        PluginLogWriter.Enqueue(
+            $"physical-visual-pin id={instanceId} " +
+            $"table={syncTableHash:X8} status=active " +
+            $"vars={applied} publicVars={count}");
     }
 
     private static void RunRandomBusControlProbe(string instanceId)
