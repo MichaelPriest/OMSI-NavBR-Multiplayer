@@ -224,13 +224,9 @@ public static class MultiplayerSettingsStore
         var enableApplicationRelay = legacyLoopbackDefault ||
                                      settings.EnableApplicationRelay;
 
-        // Physical remote buses are a default multiplayer feature now. Keep a
-        // dedicated migration version instead of piggybacking on networking:
-        // older profiles may already have NetworkSettingsVersion=3 for relay
-        // changes while never receiving the physical-bus default. Migrate such
-        // profiles once; subsequent explicit opt-out remains preserved.
-        var enablePhysicalVehiclesByDefault =
-            settings.PhysicalVehiclesSettingsVersion < 1;
+        // openOMSI v6 is now the only physical multiplayer authority. The
+        // historical opt-in flag is retained only for backward-compatible
+        // settings deserialization and is normalized on permanently.
         if (stopIconStyle == "custom" && customIconPath is null)
         {
             stopIconStyle = "omsi";
@@ -310,10 +306,9 @@ public static class MultiplayerSettingsStore
                 2d),
             StopIconStyle = stopIconStyle,
             StopCustomIconPath = customIconPath,
-            ExperimentalPhysicalVehiclesEnabled =
-                enablePhysicalVehiclesByDefault || settings.ExperimentalPhysicalVehiclesEnabled,
+            ExperimentalPhysicalVehiclesEnabled = true,
             NetworkSettingsVersion = 3,
-            PhysicalVehiclesSettingsVersion = 1,
+            PhysicalVehiclesSettingsVersion = 2,
             HudVisibilitySettingsVersion = 1,
             HudEnabled =
                 settings.HudVisibilitySettingsVersion < 1 ||
