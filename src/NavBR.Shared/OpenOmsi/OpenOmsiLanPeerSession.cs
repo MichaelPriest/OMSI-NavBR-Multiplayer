@@ -1135,7 +1135,6 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
             return;
         }
 
-        LocalPlayerId = id;
         if (!ulong.TryParse(
                 parts[3],
                 NumberStyles.HexNumber,
@@ -1156,6 +1155,7 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
         }
 
         _sessionId = session;
+        LocalPlayerId = id;
 
         if (double.TryParse(parts[7], NumberStyles.Float, CultureInfo.InvariantCulture, out var time))
         {
