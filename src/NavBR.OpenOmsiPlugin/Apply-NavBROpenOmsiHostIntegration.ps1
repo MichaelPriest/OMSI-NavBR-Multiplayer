@@ -217,7 +217,7 @@ Replace-Required $appLib @'
         log_state: Default::default(),
         plugins: None,
         navbr_overlay: Default::default(),
-        navbr_panel_open: false,
+        navbr_panel_open: true,
         career:
 '@
 
@@ -689,6 +689,38 @@ Replace-Required $ui @'
         if let Some(fps) = f.fps {
 '@ @'
         self.navbr_panel_rects.clear();
+
+        // Diagnostic/runtime identity badge: proves the patched NavBR host is the executable in use.
+        let navbr_badge_s = f.scale.max(0.5) * f.ui_scale;
+        let navbr_badge = self.text.label(
+            r,
+            scene,
+            "NavBR Host ativo",
+            (12.0 * navbr_badge_s) as u32,
+            [205, 225, 245, 0],
+        );
+        let navbr_badge_x = f.width - navbr_badge.w as f32 - 18.0 * navbr_badge_s;
+        let navbr_badge_y = 18.0 * navbr_badge_s;
+        let navbr_badge_bg = self.text.solid(r, scene, [18, 21, 27, 210]);
+        scene.overlays.push((
+            navbr_badge_bg,
+            [
+                navbr_badge_x - 8.0 * navbr_badge_s,
+                navbr_badge_y - 5.0 * navbr_badge_s,
+                f.width - 10.0 * navbr_badge_s,
+                navbr_badge_y + navbr_badge.h as f32 + 5.0 * navbr_badge_s,
+            ],
+        ));
+        scene.overlays.push((
+            navbr_badge.tex,
+            [
+                navbr_badge_x,
+                navbr_badge_y,
+                navbr_badge_x + navbr_badge.w as f32,
+                navbr_badge_y + navbr_badge.h as f32,
+            ],
+        ));
+
         if f.navbr_panel_open {
             let s = f.scale.max(0.5) * f.ui_scale;
             let width = (370.0 * s).min(f.width * 0.46);
