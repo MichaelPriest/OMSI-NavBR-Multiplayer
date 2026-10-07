@@ -154,6 +154,7 @@ try
     var sidecarTelemetry =
         new TaskCompletionSource<PlayerTelemetryFrame>(
             TaskCreationOptions.RunContinuationsAsynchronously);
+    long expectedSidecarTimestamp = 0;
 
     receiver.TelemetryReceived += frame =>
     {
@@ -162,7 +163,7 @@ try
                 senderPlayerId,
                 StringComparison.OrdinalIgnoreCase) &&
             frame.Telemetry.SourceTimestampUnixMilliseconds is long source &&
-            source == _expectedSidecarTimestamp)
+            source == expectedSidecarTimestamp)
         {
             sidecarTelemetry.TrySetResult(frame);
         }
@@ -189,7 +190,7 @@ try
 
     var firstTimestamp =
         DateTimeOffset.UtcNow;
-    _expectedSidecarTimestamp =
+    expectedSidecarTimestamp =
         firstTimestamp.ToUnixTimeMilliseconds();
 
     var firstTelemetry =
@@ -235,7 +236,7 @@ try
             PhysicalGridX: 1,
             PhysicalGridY: 1,
             SourceTimestampUnixMilliseconds:
-                _expectedSidecarTimestamp);
+                expectedSidecarTimestamp);
 
     await sender.PublishTelemetryAsync(
         firstTelemetry);
@@ -460,7 +461,6 @@ finally
         previousBackend);
 }
 
-static long _expectedSidecarTimestamp;
 
 static int GetFreeTcpPort()
 {
