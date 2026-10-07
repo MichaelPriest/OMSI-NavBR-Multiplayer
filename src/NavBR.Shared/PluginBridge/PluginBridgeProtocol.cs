@@ -203,4 +203,9 @@ public sealed record PluginBridgeMessage(
     string[]? StringVariableValues = null,
     float[]? SyncLamps = null,
     float[]? SyncSwitches = null,
-    float[]? SyncValues = null);
+    float[]? SyncValues = null,
+    float[]? SyncDoors = null,
+    ushort[]? SyncLampVariableIndices = null,
+    ushort[]? SyncSwitchVariableIndices = null,
+    ushort[]? SyncValueVariableIndices = null,
+    ushort[]? SyncDoorVariableIndices = null);
