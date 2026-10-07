@@ -161,7 +161,7 @@ internal static class OpenOmsiVarTableManifestBuilder
         string[] lines;
         try
         {
-            lines = File.ReadAllLines(busPath);
+            lines = ReadLegacyLines(busPath);
         }
         catch
         {
@@ -228,7 +228,7 @@ internal static class OpenOmsiVarTableManifestBuilder
     {
         try
         {
-            return File.ReadAllLines(path)
+            return ReadLegacyLines(path)
                 .Select(line => line.Trim())
                 .Where(line =>
                     !string.IsNullOrWhiteSpace(line) &&
@@ -240,6 +240,38 @@ internal static class OpenOmsiVarTableManifestBuilder
         {
             return Array.Empty<string>();
         }
+    }
+
+    private static string[] ReadLegacyLines(string path)
+    {
+        var bytes = File.ReadAllBytes(path);
+        string text;
+        try
+        {
+            text = new UTF8Encoding(
+                encoderShouldEmitUTF8Identifier: false,
+                throwOnInvalidBytes: true)
+                .GetString(bytes);
+        }
+        catch (DecoderFallbackException)
+        {
+            // OMSI 2 content is frequently stored as legacy Western/ANSI text.
+            // Variable identifiers are overwhelmingly ASCII, while Latin-1
+            // preserves common accented path characters without adding a
+            // platform code-page dependency to the client.
+            text = Encoding.Latin1.GetString(bytes);
+        }
+
+        var lines = text
+            .Replace("\r\n", "\n", StringComparison.Ordinal)
+            .Replace('\r', '\n')
+            .Split('\n');
+        if (lines.Length > 0)
+        {
+            lines[0] = lines[0].TrimStart('\uFEFF');
+        }
+
+        return lines;
     }
 
     private static IEnumerable<string> BuiltinVars(string root)
