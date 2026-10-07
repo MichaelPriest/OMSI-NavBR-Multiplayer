@@ -11,6 +11,11 @@ internal sealed record OpenOmsiSyncTableManifest(
     ushort[] ValueIds,
     ushort[] DoorIds,
     ushort? EngineNId,
+    ushort? AiEngineId,
+    ushort? AiLightId,
+    ushort? AiInteriorId,
+    ushort? ThrottleId,
+    ushort? BrakeId,
     string[] LampNames,
     string[] SwitchNames,
     string[] ValueNames);
@@ -159,9 +164,9 @@ internal static class OpenOmsiSyncTableManifestBuilder
             hash = 1;
         }
 
-        var engineNId =
-            varIds.TryGetValue("engine_n", out var engineId)
-                ? engineId
+        ushort? Id(string name) =>
+            varIds.TryGetValue(name, out var id)
+                ? id
                 : (ushort?)null;
 
         return new OpenOmsiSyncTableManifest(
@@ -170,7 +175,12 @@ internal static class OpenOmsiSyncTableManifestBuilder
             switches.Select(item => item.Id).ToArray(),
             values.Select(item => item.Id).ToArray(),
             doors.ToArray(),
-            engineNId,
+            Id("engine_n"),
+            Id("AI_Engine"),
+            Id("AI_Light"),
+            Id("AI_Interiorlight"),
+            Id("Throttle"),
+            Id("Brake"),
             lamps.Select(item => item.Name).ToArray(),
             switches.Select(item => item.Name).ToArray(),
             values.Select(item => item.Name).ToArray());
