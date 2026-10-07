@@ -301,10 +301,45 @@ await using (var client = new OpenOmsiLanPeerSession())
 
     var hostAtClient = await clientSawHostState.Task.WaitAsync(TimeSpan.FromSeconds(3));
     Near(hostAtClient.Y, 220d, 0.01, "peer host y");
+
+    var clientSawHostVars =
+        new TaskCompletionSource<OpenOmsiVarsFrame>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+    client.RemoteVarsReceived += vars =>
+    {
+        if (vars.PlayerId == 1)
+        {
+            clientSawHostVars.TrySetResult(vars);
+        }
+    };
+
+    var varsSender = new OpenOmsiVarsSender();
+    var varsPackets = varsSender.Tick(
+        1,
+        0xA1B2C3D4u,
+        new ushort[] { 10, 11, 12 },
+        new float[] { 1f, 0.5f, -2.25f },
+        new ushort[] { 3 },
+        new[] { "Betriebsfahrt" },
+        0.1f);
+    Require(varsPackets.Count > 0, "VARS sender produced no datagrams");
+
+    foreach (var packet in varsPackets)
+    {
+        Require(
+            OpenOmsiVarsCodec.TryDecode(packet, out var decodedVars),
+            "VARS datagram did not decode");
+        await host.PublishVarsAsync(decodedVars);
+    }
+
+    var varsAtClient = await clientSawHostVars.Task.WaitAsync(TimeSpan.FromSeconds(3));
+    Require(varsAtClient.TableHash == 0xA1B2C3D4u, "VARS table hash mismatch");
+    Require(varsAtClient.Floats.Any(item => item.Index == 10 && Math.Abs(item.Value - 1f) < 0.001f),
+        "VARS float did not cross host/client session");
 }
 
 Console.WriteLine(
-    $"openOMSI LAN v6 smoke passed: STATE {packet.Length} bytes + heartbeat + clamps + INFO/HELLO + host/join + session code + walker.");
+    $"openOMSI LAN v6 smoke passed: STATE {packet.Length} bytes + heartbeat + clamps + INFO/HELLO + host/join + session code + walker + VARS.");
 
 static void Require(bool condition, string message)
 {
