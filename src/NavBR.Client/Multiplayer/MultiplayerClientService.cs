@@ -577,19 +577,6 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
             // single authoritative remote-motion path.
             TelemetryReceived?.Invoke(frame);
         });
-        connection.On<TrafficSnapshot>("trafficSnapshot", snapshot =>
-        {
-            if (!string.IsNullOrWhiteSpace(TrafficAuthorityPlayerId) &&
-                !string.Equals(
-                    snapshot.AuthorityPlayerId,
-                    TrafficAuthorityPlayerId,
-                    StringComparison.OrdinalIgnoreCase))
-            {
-                return;
-            }
-
-            TrafficSnapshotReceived?.Invoke(snapshot);
-        });
         connection.On<string?>("trafficAuthorityChanged", authorityPlayerId =>
         {
             SetTrafficAuthority(authorityPlayerId);
