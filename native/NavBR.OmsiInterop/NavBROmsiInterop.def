@@ -20,6 +20,7 @@ EXPORTS
     NavBR_ReadRoadVehiclePathDiagnostics
     NavBR_GetRoadVehiclePublicVarCount
     NavBR_ReadRoadVehiclePublicVar
+    NavBR_WriteRoadVehiclePublicVar
     NavBR_IsRoadVehiclePointer
     NavBR_IsMapTileIndexValid
     NavBR_ResolveMapTileIndex
