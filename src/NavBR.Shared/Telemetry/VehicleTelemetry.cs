@@ -57,7 +57,11 @@ public sealed record VehicleTelemetry(
     double? AccelerationLocalY = null,
     double? AccelerationLocalZ = null,
     long? SourceTimestampUnixMilliseconds = null,
-    VehicleSectionPose[]? RearSections = null);
+    VehicleSectionPose[]? RearSections = null,
+    uint? SyncTableHash = null,
+    float[]? OpenOmsiLamps = null,
+    float[]? OpenOmsiSwitches = null,
+    float[]? OpenOmsiValues = null);
 
 public sealed record VehicleSectionPose(
     double LocalX,
