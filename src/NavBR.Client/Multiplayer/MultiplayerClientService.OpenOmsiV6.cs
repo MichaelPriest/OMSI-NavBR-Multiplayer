@@ -28,12 +28,25 @@ public sealed partial class MultiplayerClientService
         _openOmsiCompatibleRemoteSyncHash = new();
     private readonly System.Collections.Concurrent.ConcurrentDictionary<ushort, OpenOmsiSyncTableManifest>
         _openOmsiCompatibleRemoteSyncTable = new();
+    private readonly Dictionary<(bool IsPerson, uint Id), OpenOmsiWorldDescription>
+        _openOmsiWorldDescriptions = [];
+    private readonly Dictionary<(ushort PlayerId, uint Id), OpenOmsiWorldDescription.Person>
+        _openOmsiClientWorldDescriptions = [];
+    private readonly Dictionary<uint, (OpenOmsiWorldCarState State, DateTimeOffset SeenAt)>
+        _openOmsiWorldCars = [];
+    private readonly Dictionary<(bool IsPerson, uint Id), DateTimeOffset>
+        _openOmsiWorldWantAt = [];
+    private readonly Dictionary<string, uint> _openOmsiTrafficWireIdByKey =
+        new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<uint> _openOmsiHostTrafficActiveIds = [];
     private OpenOmsiLanPeerSession? _openOmsiV6Session;
     private OpenOmsiWebSocketGateway? _openOmsiWebSocketGateway;
     private OpenOmsiWebSocketClient? _openOmsiWebSocketClient;
     private OpenOmsiQuickTunnel? _openOmsiQuickTunnel;
     private string? _openOmsiPublicWebSocketUrl;
     private ushort _openOmsiLocalSequence;
+    private ushort _openOmsiWorldSequence;
+    private long _openOmsiTrafficReceiveSequence;
     private uint? _openOmsiConfiguredLocalVarHash;
     private string? _openOmsiConfiguredLocalSampleKey;
     private DateTimeOffset? _openOmsiLastPublishedLocalVarsAt;
@@ -46,6 +59,168 @@ public sealed partial class MultiplayerClientService
     public string? OpenOmsiV6SessionCode => _openOmsiV6Session?.SessionCode;
     public int? OpenOmsiV6Port => _openOmsiV6Session?.Port;
     public string? OpenOmsiV6WebSocketUrl => _openOmsiPublicWebSocketUrl;
+
+    public event Action<OpenOmsiLanClock>? OpenOmsiClockReceived;
+    public event Action<OpenOmsiWorldFrame>? OpenOmsiWorldFrameReceived;
+    public event Action<ushort, OpenOmsiWorldFrame>? OpenOmsiClientWorldFrameReceived;
+
+    private void AttachOpenOmsiV6Handlers(
+        OpenOmsiLanPeerSession session)
+    {
+        session.RemoteInfoReceived += HandleOpenOmsiRemoteInfo;
+        session.RemoteStateReceived += HandleOpenOmsiRemoteState;
+        session.RemoteVarsReceived += HandleOpenOmsiRemoteVars;
+        session.ChatReceived += HandleOpenOmsiChat;
+        session.CommandReceived += HandleOpenOmsiCommand;
+        session.RemoteLeft += HandleOpenOmsiRemoteLeft;
+        session.ClockReceived += HandleOpenOmsiClock;
+        session.WorldFrameReceived += HandleOpenOmsiWorldFrame;
+        session.ClientWorldFrameReceived += HandleOpenOmsiClientWorldFrame;
+        session.WorldDescriptionReceived += HandleOpenOmsiWorldDescription;
+        session.WorldDescriptionsRequested +=
+            HandleOpenOmsiWorldDescriptionsRequested;
+        session.ClientWorldDescriptionReceived +=
+            HandleOpenOmsiClientWorldDescription;
+    }
+
+    private void HandleOpenOmsiClock(
+        OpenOmsiLanClock clock) =>
+        OpenOmsiClockReceived?.Invoke(clock);
+
+    private void HandleOpenOmsiWorldDescription(
+        OpenOmsiWorldDescription description)
+    {
+        lock (_openOmsiV6Sync)
+        {
+            _openOmsiWorldDescriptions[
+                (description is OpenOmsiWorldDescription.Person,
+                 description.Id)] = description;
+            _openOmsiWorldWantAt.Remove(
+                (description is OpenOmsiWorldDescription.Person,
+                 description.Id));
+        }
+
+        EmitOpenOmsiWorldTrafficSnapshot();
+    }
+
+    private void HandleOpenOmsiClientWorldDescription(
+        ushort playerId,
+        OpenOmsiWorldDescription.Person description)
+    {
+        lock (_openOmsiV6Sync)
+        {
+            _openOmsiClientWorldDescriptions[
+                (playerId, description.Id)] = description;
+        }
+    }
+
+    private void HandleOpenOmsiWorldDescriptionsRequested(
+        ushort playerId,
+        IReadOnlyList<OpenOmsiWorldEntityRef> references) =>
+        _ = RespondToOpenOmsiWorldDescriptionRequestAsync(
+            playerId,
+            references);
+
+    private async Task RespondToOpenOmsiWorldDescriptionRequestAsync(
+        ushort playerId,
+        IReadOnlyList<OpenOmsiWorldEntityRef> references)
+    {
+        var session = _openOmsiV6Session;
+        if (session?.IsHost != true)
+        {
+            return;
+        }
+
+        foreach (var reference in references.Take(64))
+        {
+            OpenOmsiWorldDescription? description;
+            lock (_openOmsiV6Sync)
+            {
+                _openOmsiWorldDescriptions.TryGetValue(
+                    (reference.IsPerson, reference.Id),
+                    out description);
+            }
+
+            if (description is null)
+            {
+                continue;
+            }
+
+            await session.SendWorldDescriptionAsync(
+                playerId,
+                description);
+        }
+    }
+
+    private void HandleOpenOmsiClientWorldFrame(
+        ushort playerId,
+        OpenOmsiWorldFrame frame) =>
+        OpenOmsiClientWorldFrameReceived?.Invoke(
+            playerId,
+            frame);
+
+    private void HandleOpenOmsiWorldFrame(
+        OpenOmsiWorldFrame frame)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var missing = new List<OpenOmsiWorldEntityRef>();
+
+        lock (_openOmsiV6Sync)
+        {
+            foreach (var car in frame.Cars)
+            {
+                _openOmsiWorldCars[car.Id] =
+                    (car, now);
+                var key = (IsPerson: false, car.Id);
+                if (!_openOmsiWorldDescriptions.ContainsKey(key) &&
+                    (!_openOmsiWorldWantAt.TryGetValue(
+                         key,
+                         out var wantedAt) ||
+                     now - wantedAt >
+                         TimeSpan.FromMilliseconds(800)))
+                {
+                    _openOmsiWorldWantAt[key] = now;
+                    missing.Add(
+                        new OpenOmsiWorldEntityRef(
+                            false,
+                            car.Id));
+                }
+            }
+
+            foreach (var gone in frame.Gone)
+            {
+                if (!gone.IsPerson)
+                {
+                    _openOmsiWorldCars.Remove(gone.Id);
+                    _openOmsiWorldDescriptions.Remove(
+                        (false, gone.Id));
+                    _openOmsiWorldWantAt.Remove(
+                        (false, gone.Id));
+                }
+            }
+
+            foreach (var stale in _openOmsiWorldCars
+                         .Where(pair =>
+                             now - pair.Value.SeenAt >
+                             TimeSpan.FromSeconds(4))
+                         .Select(pair => pair.Key)
+                         .ToArray())
+            {
+                _openOmsiWorldCars.Remove(stale);
+            }
+        }
+
+        OpenOmsiWorldFrameReceived?.Invoke(frame);
+
+        if (missing.Count > 0 &&
+            _openOmsiV6Session?.IsHost == false)
+        {
+            _ = _openOmsiV6Session
+                .RequestWorldDescriptionsAsync(missing);
+        }
+
+        EmitOpenOmsiWorldTrafficSnapshot();
+    }
 
     private async Task ConfigureOpenOmsiV6Async(
         RoomSnapshot snapshot,
@@ -76,12 +251,7 @@ public sealed partial class MultiplayerClientService
             string.Empty);
 
         var session = new OpenOmsiLanPeerSession();
-        session.RemoteInfoReceived += HandleOpenOmsiRemoteInfo;
-        session.RemoteStateReceived += HandleOpenOmsiRemoteState;
-            session.RemoteVarsReceived += HandleOpenOmsiRemoteVars;
-            session.ChatReceived += HandleOpenOmsiChat;
-            session.CommandReceived += HandleOpenOmsiCommand;
-        session.RemoteLeft += HandleOpenOmsiRemoteLeft;
+        AttachOpenOmsiV6Handlers(session);
         _openOmsiV6Session = session;
         StartOpenOmsiPlaybackLoop();
 
@@ -157,12 +327,7 @@ public sealed partial class MultiplayerClientService
         if (session is null)
         {
             session = new OpenOmsiLanPeerSession();
-            session.RemoteInfoReceived += HandleOpenOmsiRemoteInfo;
-            session.RemoteStateReceived += HandleOpenOmsiRemoteState;
-            session.RemoteVarsReceived += HandleOpenOmsiRemoteVars;
-            session.ChatReceived += HandleOpenOmsiChat;
-            session.CommandReceived += HandleOpenOmsiCommand;
-            session.RemoteLeft += HandleOpenOmsiRemoteLeft;
+            AttachOpenOmsiV6Handlers(session);
             _openOmsiV6Session = session;
             StartOpenOmsiPlaybackLoop();
         }
@@ -1019,6 +1184,310 @@ public sealed partial class MultiplayerClientService
         RemoveRoleplayCharacter(presence.PlayerId);
     }
 
+    private async Task PublishOpenOmsiTrafficSnapshotAsync(
+        TrafficSnapshot snapshot,
+        CancellationToken cancellationToken)
+    {
+        var session = _openOmsiV6Session;
+        if (session?.IsHost != true ||
+            !session.IsRunning)
+        {
+            return;
+        }
+
+        var currentIds = new HashSet<uint>();
+        var cars = new List<OpenOmsiWorldCarState>(
+            Math.Min(snapshot.Vehicles.Count, 48));
+
+        foreach (var vehicle in snapshot.Vehicles.Take(48))
+        {
+            var path =
+                OpenOmsiLanProtocol.NormalizeVehiclePath(
+                    vehicle.VehiclePath);
+            if (path is null)
+            {
+                continue;
+            }
+
+            var id = ResolveOpenOmsiWorldTrafficId(
+                vehicle.TrafficId);
+            currentIds.Add(id);
+
+            var description =
+                new OpenOmsiWorldDescription.Car(
+                    id,
+                    path,
+                    null,
+                    string.Empty,
+                    string.Empty);
+            var descriptionChanged = false;
+            lock (_openOmsiV6Sync)
+            {
+                var key = (IsPerson: false, id);
+                if (!_openOmsiWorldDescriptions.TryGetValue(
+                        key,
+                        out var previous) ||
+                    !Equals(previous, description))
+                {
+                    _openOmsiWorldDescriptions[key] =
+                        description;
+                    descriptionChanged = true;
+                }
+            }
+
+            if (descriptionChanged)
+            {
+                await session.BroadcastWorldDescriptionAsync(
+                    description,
+                    cancellationToken);
+            }
+
+            var heading =
+                OpenOmsiQuaternionHeading(
+                    vehicle.RotationX,
+                    vehicle.RotationY,
+                    vehicle.RotationZ,
+                    vehicle.RotationW);
+            if (!double.IsFinite(heading))
+            {
+                heading = 0d;
+            }
+
+            var lights =
+                (VehicleLightFlags)vehicle.LightFlags;
+            var externalLights =
+                (lights &
+                 (VehicleLightFlags.Position |
+                  VehicleLightFlags.LowBeam |
+                  VehicleLightFlags.HighBeam |
+                  VehicleLightFlags.Fog)) != 0;
+            var braking =
+                (lights & VehicleLightFlags.Brake) != 0;
+
+            cars.Add(
+                new OpenOmsiWorldCarState(
+                    id,
+                    vehicle.X,
+                    vehicle.Z,
+                    vehicle.Y,
+                    (float)heading,
+                    0f,
+                    0f,
+                    (float)Math.Clamp(
+                        vehicle.SpeedKph / 3.6d,
+                        -20d,
+                        70d),
+                    0f,
+                    (byte)Math.Clamp(
+                        vehicle.TurnSignal,
+                        0,
+                        3),
+                    braking,
+                    externalLights,
+                    0));
+        }
+
+        var gone = new List<(bool IsPerson, uint Id)>();
+        lock (_openOmsiV6Sync)
+        {
+            foreach (var stale in
+                     _openOmsiHostTrafficActiveIds
+                         .Where(id => !currentIds.Contains(id))
+                         .ToArray())
+            {
+                gone.Add((false, stale));
+                _openOmsiHostTrafficActiveIds.Remove(stale);
+                _openOmsiWorldDescriptions.Remove(
+                    (false, stale));
+            }
+
+            foreach (var id in currentIds)
+            {
+                _openOmsiHostTrafficActiveIds.Add(id);
+            }
+        }
+
+        await session.PublishWorldAsync(
+            new OpenOmsiWorldFrame(
+                unchecked(++_openOmsiWorldSequence),
+                unchecked((uint)Environment.TickCount64),
+                cars,
+                Array.Empty<OpenOmsiWorldPersonState>(),
+                Array.Empty<OpenOmsiWorldLightState>(),
+                gone),
+            cancellationToken);
+    }
+
+    private uint ResolveOpenOmsiWorldTrafficId(
+        string trafficId)
+    {
+        var key = string.IsNullOrWhiteSpace(trafficId)
+            ? "traffic"
+            : trafficId.Trim();
+
+        lock (_openOmsiV6Sync)
+        {
+            if (_openOmsiTrafficWireIdByKey.TryGetValue(
+                    key,
+                    out var existing))
+            {
+                return existing;
+            }
+
+            uint hash = 2166136261u;
+            foreach (var value in
+                     System.Text.Encoding.UTF8.GetBytes(
+                         key.ToLowerInvariant()))
+            {
+                hash =
+                    unchecked((hash ^ value) * 16777619u);
+            }
+
+            var id =
+                hash & OpenOmsiWorldCodec.MaxId;
+            if (id == 0)
+            {
+                id = 1;
+            }
+
+            var used =
+                _openOmsiTrafficWireIdByKey.Values
+                    .ToHashSet();
+            while (used.Contains(id))
+            {
+                id =
+                    id >= OpenOmsiWorldCodec.MaxId
+                        ? 1u
+                        : id + 1u;
+            }
+
+            _openOmsiTrafficWireIdByKey[key] = id;
+            return id;
+        }
+    }
+
+    private void EmitOpenOmsiWorldTrafficSnapshot()
+    {
+        if (_openOmsiV6Session?.IsHost != false)
+        {
+            return;
+        }
+
+        List<(OpenOmsiWorldCarState Car,
+              OpenOmsiWorldDescription.Car Description)> resolved;
+        lock (_openOmsiV6Sync)
+        {
+            resolved = _openOmsiWorldCars
+                .Select(pair =>
+                {
+                    _openOmsiWorldDescriptions.TryGetValue(
+                        (false, pair.Key),
+                        out var description);
+                    return (
+                        pair.Value.State,
+                        description as
+                            OpenOmsiWorldDescription.Car);
+                })
+                .Where(item => item.Item2 is not null)
+                .Select(item => (
+                    item.State,
+                    item.Item2!))
+                .Take(48)
+                .ToList();
+        }
+
+        if (resolved.Count == 0)
+        {
+            TrafficSnapshotReceived?.Invoke(
+                new TrafficSnapshot(
+                    TrafficAuthorityPlayerId ??
+                        "openomsi-host",
+                    Interlocked.Increment(
+                        ref _openOmsiTrafficReceiveSequence),
+                    DateTimeOffset.UtcNow,
+                    _joinRequest?.MapName,
+                    _joinRequest?.MapCompatibilityId,
+                    Array.Empty<TrafficVehicleState>()));
+            return;
+        }
+
+        var vehicles =
+            new List<TrafficVehicleState>(
+                resolved.Count);
+        foreach (var (car, description) in resolved)
+        {
+            var probe = new VehicleTelemetry(
+                PlayerId: $"world:{car.Id}",
+                Timestamp: DateTimeOffset.UtcNow,
+                MapName: _joinRequest?.MapName,
+                VehicleName: null,
+                Line: description.Line,
+                Route: null,
+                X: car.X,
+                Y: car.Y,
+                Z: car.Z,
+                HeadingDegrees: car.HeadingDegrees,
+                SpeedKph:
+                    car.SpeedMetersPerSecond * 3.6d,
+                IsInGame: true,
+                MapCompatibilityId:
+                    _joinRequest?.MapCompatibilityId);
+
+            if (!_openOmsiWorldAnchorResolver
+                    .TryResolveOpenOmsiWorldAnchor(
+                        probe,
+                        out var anchor))
+            {
+                continue;
+            }
+
+            var lightFlags =
+                VehicleLightFlags.None;
+            if (car.Lights)
+            {
+                lightFlags |=
+                    VehicleLightFlags.Position |
+                    VehicleLightFlags.LowBeam;
+            }
+            if (car.Brake)
+            {
+                lightFlags |=
+                    VehicleLightFlags.Brake;
+            }
+
+            vehicles.Add(
+                new TrafficVehicleState(
+                    $"world:{car.Id}",
+                    description.File,
+                    null,
+                    car.X,
+                    car.Z,
+                    car.Y,
+                    anchor.LocalX,
+                    anchor.LocalY,
+                    anchor.LocalZ,
+                    anchor.RotationX,
+                    anchor.RotationY,
+                    anchor.RotationZ,
+                    anchor.RotationW,
+                    car.SpeedMetersPerSecond *
+                        3.6d,
+                    (int)lightFlags,
+                    car.TurnSignal));
+        }
+
+        TrafficSnapshotReceived?.Invoke(
+            new TrafficSnapshot(
+                TrafficAuthorityPlayerId ??
+                    "openomsi-host",
+                Interlocked.Increment(
+                    ref _openOmsiTrafficReceiveSequence),
+                DateTimeOffset.UtcNow,
+                _joinRequest?.MapName,
+                _joinRequest?.MapCompatibilityId,
+                vehicles));
+    }
+
     private async Task PublishOpenOmsiTelemetryAsync(
         VehicleTelemetry telemetry,
         CancellationToken cancellationToken)
@@ -1570,12 +2039,7 @@ public sealed partial class MultiplayerClientService
 
             await StopOpenOmsiV6Async();
             var session = new OpenOmsiLanPeerSession();
-            session.RemoteInfoReceived += HandleOpenOmsiRemoteInfo;
-            session.RemoteStateReceived += HandleOpenOmsiRemoteState;
-            session.RemoteVarsReceived += HandleOpenOmsiRemoteVars;
-            session.ChatReceived += HandleOpenOmsiChat;
-            session.CommandReceived += HandleOpenOmsiCommand;
-            session.RemoteLeft += HandleOpenOmsiRemoteLeft;
+            AttachOpenOmsiV6Handlers(session);
             _openOmsiV6Session = session;
             StartOpenOmsiPlaybackLoop();
 
@@ -1722,6 +2186,17 @@ public sealed partial class MultiplayerClientService
         _openOmsiRemoteSyncProbeKey.Clear();
         _openOmsiCompatibleRemoteSyncHash.Clear();
         _openOmsiCompatibleRemoteSyncTable.Clear();
+        lock (_openOmsiV6Sync)
+        {
+            _openOmsiWorldDescriptions.Clear();
+            _openOmsiClientWorldDescriptions.Clear();
+            _openOmsiWorldCars.Clear();
+            _openOmsiWorldWantAt.Clear();
+            _openOmsiTrafficWireIdByKey.Clear();
+            _openOmsiHostTrafficActiveIds.Clear();
+        }
+        _openOmsiWorldSequence = 0;
+        _openOmsiTrafficReceiveSequence = 0;
 
         if (session is not null)
         {
