@@ -244,6 +244,10 @@ public partial class HudOverlayWindow
             // Keep the arrow a few centimetres above the physical spline to
             // avoid z-fighting while remaining visually attached to the road.
             const double GroundLiftMeters = 0.045d;
+            double screenX = 0d;
+            double screenY = 0d;
+            double nextScreenX = 0d;
+            double nextScreenY = 0d;
             var projected =
                 TryProjectToViewport(
                     new Vector3(
