@@ -444,6 +444,91 @@ public sealed partial class MultiplayerClientService
     private void SetOpenOmsiLocalRoleplayState(RoleplayCharacterState? state) =>
         _openOmsiLocalRoleplayState = state;
 
+    private async Task RepublishOpenOmsiV6PresenceAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var session = _openOmsiV6Session;
+        var connection = _connection;
+        if (session?.IsRunning != true ||
+            connection?.State != HubConnectionState.Connected)
+        {
+            return;
+        }
+
+        if (session.IsHost)
+        {
+            await PublishOpenOmsiTransportPresenceAsync(
+                session,
+                ResolveLanAdvertiseAddress(),
+                cancellationToken);
+        }
+        else
+        {
+            await connection.InvokeAsync(
+                "UpdateOpenOmsiLanId",
+                (ushort?)session.LocalPlayerId,
+                cancellationToken);
+        }
+    }
+
+    private async Task HandleOpenOmsiAuthorityChangedAsync()
+    {
+        if (_joinRequest is null)
+        {
+            return;
+        }
+
+        if (IsTrafficAuthority)
+        {
+            if (_openOmsiV6Session?.IsHost == true)
+            {
+                await RepublishOpenOmsiV6PresenceAsync();
+                return;
+            }
+
+            await StopOpenOmsiV6Async();
+            var session = new OpenOmsiLanPeerSession();
+            session.RemoteInfoReceived += HandleOpenOmsiRemoteInfo;
+            session.RemoteStateReceived += HandleOpenOmsiRemoteState;
+            session.RemoteLeft += HandleOpenOmsiRemoteLeft;
+            _openOmsiV6Session = session;
+
+            var world = new OpenOmsiLanWorld(
+                NormalizeOpenOmsiMapPath(_joinRequest.MapName),
+                DateOnly.FromDateTime(DateTime.Now).ToString("yyyy-MM-dd"),
+                0d,
+                string.Empty,
+                string.Empty);
+            await session.StartHostAsync(world);
+            await PublishOpenOmsiTransportPresenceAsync(
+                session,
+                ResolveLanAdvertiseAddress(),
+                CancellationToken.None);
+            return;
+        }
+
+        if (_openOmsiV6Session?.IsHost == true)
+        {
+            await StopOpenOmsiV6Async();
+        }
+
+        PlayerPresence? authority = null;
+        lock (_openOmsiV6Sync)
+        {
+            if (!string.IsNullOrWhiteSpace(TrafficAuthorityPlayerId))
+            {
+                _openOmsiPresenceByPlayerId.TryGetValue(
+                    TrafficAuthorityPlayerId,
+                    out authority);
+            }
+        }
+
+        if (authority is not null)
+        {
+            await HandleOpenOmsiPresenceAsync(authority);
+        }
+    }
+
     private async Task StopOpenOmsiV6Async()
     {
         var session = _openOmsiV6Session;
