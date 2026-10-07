@@ -4,18 +4,19 @@ using System.Runtime.InteropServices;
 namespace NavBR.OpenOmsiPlugin;
 
 /// <summary>
-/// Update-safe NavBR control surface. It lives entirely inside the plugin DLL and never
-/// patches/replaces openomsi.exe. F10 toggles a native Win32 overlay anchored to the
-/// openOMSI window; clicks call the plugin's HUD state directly.
+/// Update-safe NavBR in-game surface. Lives entirely inside the plugin DLL and never
+/// patches/replaces openomsi.exe. F10 toggles controls plus a live navigation preview.
 /// </summary>
 internal static class OpenOmsiStandaloneOverlay
 {
-    private const int Width = 390;
-    private const int Header = 74;
-    private const int RowHeight = 38;
-    private const int Footer = 58;
+    private const int Width = 760;
+    private const int Height = 520;
+    private const int ControlsWidth = 300;
+    private const int Header = 64;
+    private const int RowHeight = 33;
+    private const int Footer = 54;
     private const int RowCount = 10;
-    private const int Height = Header + RowHeight * RowCount + Footer;
+    private const int TimerId = 0x4E42;
 
     private const uint WS_POPUP = 0x80000000;
     private const uint WS_VISIBLE = 0x10000000;
@@ -26,12 +27,13 @@ internal static class OpenOmsiStandaloneOverlay
 
     private const uint WM_DESTROY = 0x0002;
     private const uint WM_PAINT = 0x000F;
+    private const uint WM_TIMER = 0x0113;
     private const uint WM_LBUTTONUP = 0x0202;
     private const uint WM_HOTKEY = 0x0312;
 
     private const int SW_HIDE = 0;
     private const int SW_SHOWNOACTIVATE = 4;
-    private const int HOTKEY_ID = 0x4E4252; // NBR
+    private const int HOTKEY_ID = 0x4E4252;
     private const uint VK_F10 = 0x79;
 
     private static readonly string[] Rows =
@@ -63,6 +65,7 @@ internal static class OpenOmsiStandaloneOverlay
             return;
         }
 
+        SyncEnabledFromState();
         _running = true;
         _thread = new Thread(Run)
         {
@@ -81,6 +84,21 @@ internal static class OpenOmsiStandaloneOverlay
         {
             PostMessage(hwnd, WM_DESTROY, IntPtr.Zero, IntPtr.Zero);
         }
+    }
+
+    private static void SyncEnabledFromState()
+    {
+        var state = OpenOmsiHudState.Current;
+        Enabled[0] = state.MiniMapEnabled;
+        Enabled[1] = state.FullMapEnabled;
+        Enabled[2] = state.AutoZoomEnabled;
+        Enabled[3] = state.FollowVehicleEnabled;
+        Enabled[4] = state.TimetableEnabled;
+        Enabled[5] = state.TeleMatrixEnabled;
+        Enabled[6] = state.TrafficEnabled;
+        Enabled[7] = state.MultiplayerEnabled;
+        Enabled[8] = state.CongestionEnabled;
+        Enabled[9] = state.RouteGuidanceEnabled;
     }
 
     private static void Run()
@@ -126,36 +144,25 @@ internal static class OpenOmsiStandaloneOverlay
 
             SetLayeredWindowAttributes(_window, 0, 242, LWA_ALPHA);
             RegisterHotKey(_window, HOTKEY_ID, 0, VK_F10);
+            SetTimer(_window, TimerId, 250, IntPtr.Zero);
             ShowWindow(_window, SW_SHOWNOACTIVATE);
             InvalidateRect(_window, IntPtr.Zero, true);
-
-            var lastAnchor = owner;
-            var lastTick = Environment.TickCount64;
 
             while (_running && GetMessage(out var msg, IntPtr.Zero, 0, 0) > 0)
             {
                 TranslateMessage(ref msg);
                 DispatchMessage(ref msg);
-
-                if (Environment.TickCount64 - lastTick > 500)
-                {
-                    lastTick = Environment.TickCount64;
-                    if (lastAnchor == IntPtr.Zero || !IsWindow(lastAnchor))
-                    {
-                        lastAnchor = FindOpenOmsiWindow();
-                    }
-                    PositionNearOpenOmsi(lastAnchor);
-                }
             }
         }
         catch
         {
-            // The plugin must never bring the simulator down because the optional overlay failed.
+            // Optional UI must never bring the simulator down.
         }
         finally
         {
             if (_window != IntPtr.Zero)
             {
+                KillTimer(_window, TimerId);
                 UnregisterHotKey(_window, HOTKEY_ID);
                 DestroyWindow(_window);
                 _window = IntPtr.Zero;
@@ -174,7 +181,15 @@ internal static class OpenOmsiStandaloneOverlay
                 if (_visible)
                 {
                     PositionNearOpenOmsi(FindOpenOmsiWindow());
-                    InvalidateRect(hwnd, IntPtr.Zero, true);
+                    InvalidateRect(hwnd, IntPtr.Zero, false);
+                }
+                return IntPtr.Zero;
+
+            case WM_TIMER when wParam.ToInt32() == TimerId:
+                if (_visible)
+                {
+                    PositionNearOpenOmsi(FindOpenOmsiWindow());
+                    InvalidateRect(hwnd, IntPtr.Zero, false);
                 }
                 return IntPtr.Zero;
 
@@ -196,7 +211,7 @@ internal static class OpenOmsiStandaloneOverlay
 
     private static void HandleClick(IntPtr hwnd, int x, int y)
     {
-        if (y >= Header && y < Header + RowHeight * RowCount)
+        if (x < ControlsWidth && y >= Header && y < Header + RowHeight * RowCount)
         {
             var bit = (y - Header) / RowHeight;
             if (bit is >= 0 and < RowCount)
@@ -210,11 +225,10 @@ internal static class OpenOmsiStandaloneOverlay
         }
 
         var footerY = Header + RowHeight * RowCount;
-        if (y >= footerY)
+        if (x < ControlsWidth && y >= footerY && y < footerY + Footer)
         {
-            var third = Width / 3;
-            var preset = Math.Clamp(x / third, 0, 2);
-            ApplyPreset(preset);
+            var third = ControlsWidth / 3;
+            ApplyPreset(Math.Clamp(x / third, 0, 2));
             InvalidateRect(hwnd, IntPtr.Zero, false);
         }
     }
@@ -224,10 +238,10 @@ internal static class OpenOmsiStandaloneOverlay
         Array.Fill(Enabled, false);
         switch (preset)
         {
-            case 0: // GPS
+            case 0:
                 foreach (var bit in new[] { 0, 2, 3, 9 }) Enabled[bit] = true;
                 break;
-            case 1: // Operacao
+            case 1:
                 foreach (var bit in new[] { 0, 2, 3, 4, 5, 6, 8, 9 }) Enabled[bit] = true;
                 break;
             default:
@@ -251,59 +265,268 @@ internal static class OpenOmsiStandaloneOverlay
             return;
         }
 
+        IntPtr bg = IntPtr.Zero;
+        IntPtr rowBg = IntPtr.Zero;
+        IntPtr on = IntPtr.Zero;
+        IntPtr off = IntPtr.Zero;
+        IntPtr accent = IntPtr.Zero;
+        IntPtr mapBg = IntPtr.Zero;
+        IntPtr routePen = IntPtr.Zero;
+        IntPtr traveledPen = IntPtr.Zero;
+        IntPtr rejoinPen = IntPtr.Zero;
+
         try
         {
-            var bg = CreateSolidBrush(Rgb(18, 21, 27));
-            var rowBg = CreateSolidBrush(Rgb(31, 36, 45));
-            var on = CreateSolidBrush(Rgb(45, 145, 235));
-            var off = CreateSolidBrush(Rgb(72, 78, 88));
-            var accent = CreateSolidBrush(Rgb(35, 74, 112));
+            bg = CreateSolidBrush(Rgb(18, 21, 27));
+            rowBg = CreateSolidBrush(Rgb(31, 36, 45));
+            on = CreateSolidBrush(Rgb(45, 145, 235));
+            off = CreateSolidBrush(Rgb(72, 78, 88));
+            accent = CreateSolidBrush(Rgb(35, 74, 112));
+            mapBg = CreateSolidBrush(Rgb(11, 14, 19));
+            routePen = CreatePen(0, 4, Rgb(48, 160, 255));
+            traveledPen = CreatePen(0, 3, Rgb(92, 105, 120));
+            rejoinPen = CreatePen(0, 3, Rgb(255, 176, 56));
+
             var white = Rgb(245, 248, 252);
             var muted = Rgb(170, 185, 205);
+            var warning = Rgb(255, 190, 70);
 
             var clientRect = Rect(0, 0, Width, Height);
             FillRect(hdc, ref clientRect, bg);
             SetBkMode(hdc, 1);
+
             SetTextColor(hdc, white);
-            TextOut(hdc, 16, 14, "NavBR", 5);
+            DrawTextLine(hdc, 14, 12, "NavBR openOMSI");
             SetTextColor(hdc, muted);
-            var subtitle = "Plugin update-safe · F10 · openomsi.exe oficial";
-            TextOut(hdc, 16, 42, subtitle, subtitle.Length);
+            DrawTextLine(hdc, 14, 37, "F10 fecha/abre · plugin-only · EXE oficial");
 
-            for (var i = 0; i < RowCount; i++)
+            DrawControls(hdc, rowBg, on, off, accent, white);
+
+            var divider = Rect(ControlsWidth, 0, ControlsWidth + 2, Height);
+            FillRect(hdc, ref divider, accent);
+
+            var frame = OpenOmsiOverlayExport.LatestOverlay2D;
+            if (frame is null)
             {
-                var y = Header + i * RowHeight;
-                var rr = Rect(8, y + 1, Width - 8, y + RowHeight - 1);
-                FillRect(hdc, ref rr, rowBg);
-                SetTextColor(hdc, white);
-                TextOut(hdc, 18, y + 11, Rows[i], Rows[i].Length);
-
-                var sw = Rect(Width - 62, y + 9, Width - 20, y + 29);
-                FillRect(hdc, ref sw, Enabled[i] ? on : off);
+                SetTextColor(hdc, warning);
+                DrawTextLine(hdc, ControlsWidth + 24, 28, "Aguardando dados do openOMSI...");
+                SetTextColor(hdc, muted);
+                DrawTextLine(hdc, ControlsWidth + 24, 56, "Entre no mapa e carregue um veiculo.");
+                return;
             }
 
-            var footerY = Header + RowHeight * RowCount;
-            var names = new[] { "GPS", "Operacao", "Tudo" };
-            for (var i = 0; i < names.Length; i++)
-            {
-                var x0 = i * (Width / 3) + 6;
-                var x1 = (i + 1) * (Width / 3) - 6;
-                var r = Rect(x0, footerY + 12, x1, Height - 10);
-                FillRect(hdc, ref r, accent);
-                SetTextColor(hdc, white);
-                TextOut(hdc, x0 + 18, footerY + 24, names[i], names[i].Length);
-            }
-
-            DeleteObject(bg);
-            DeleteObject(rowBg);
-            DeleteObject(on);
-            DeleteObject(off);
-            DeleteObject(accent);
+            DrawLiveHeader(hdc, frame, white, muted, warning);
+            DrawMap(hdc, frame, mapBg, routePen, traveledPen, rejoinPen, white, muted);
+            DrawLiveFooter(hdc, frame, white, muted, warning);
         }
         finally
         {
+            foreach (var obj in new[] { bg, rowBg, on, off, accent, mapBg, routePen, traveledPen, rejoinPen })
+            {
+                if (obj != IntPtr.Zero) DeleteObject(obj);
+            }
             EndPaint(hwnd, ref ps);
         }
+    }
+
+    private static void DrawControls(IntPtr hdc, IntPtr rowBg, IntPtr on, IntPtr off, IntPtr accent, uint white)
+    {
+        for (var i = 0; i < RowCount; i++)
+        {
+            var y = Header + i * RowHeight;
+            var rr = Rect(8, y + 1, ControlsWidth - 8, y + RowHeight - 1);
+            FillRect(hdc, ref rr, rowBg);
+            SetTextColor(hdc, white);
+            DrawTextLine(hdc, 16, y + 9, Rows[i]);
+
+            var sw = Rect(ControlsWidth - 54, y + 7, ControlsWidth - 16, y + 26);
+            FillRect(hdc, ref sw, Enabled[i] ? on : off);
+        }
+
+        var footerY = Header + RowHeight * RowCount;
+        var names = new[] { "GPS", "Operacao", "Tudo" };
+        for (var i = 0; i < names.Length; i++)
+        {
+            var x0 = i * (ControlsWidth / 3) + 5;
+            var x1 = (i + 1) * (ControlsWidth / 3) - 5;
+            var r = Rect(x0, footerY + 10, x1, footerY + 43);
+            FillRect(hdc, ref r, accent);
+            SetTextColor(hdc, white);
+            DrawTextLine(hdc, x0 + 13, footerY + 19, names[i]);
+        }
+    }
+
+    private static void DrawLiveHeader(
+        IntPtr hdc,
+        NavBR.Shared.PluginBridge.OpenOmsiOverlay2DFrameState frame,
+        uint white,
+        uint muted,
+        uint warning)
+    {
+        var x = ControlsWidth + 18;
+        SetTextColor(hdc, frame.OffRoute ? warning : white);
+        DrawTextLine(hdc, x, 14, frame.OffRoute ? "FORA DA ROTA" : Safe(frame.PrimaryText, "Navegacao ativa"));
+
+        SetTextColor(hdc, muted);
+        var distance = frame.DistanceToManeuverMeters is double d
+            ? d < 1000 ? $"{d:0} m" : $"{d / 1000d:0.0} km"
+            : "--";
+        var remaining = frame.RouteRemainingMeters is double r
+            ? r < 1000 ? $"{r:0} m restantes" : $"{r / 1000d:0.0} km restantes"
+            : "rota sem distancia";
+        DrawTextLine(hdc, x, 39, $"{distance} · {remaining}");
+        DrawTextLine(hdc, x, 59, Safe(frame.SecondaryText, "Aguardando proxima parada"));
+    }
+
+    private static void DrawMap(
+        IntPtr hdc,
+        NavBR.Shared.PluginBridge.OpenOmsiOverlay2DFrameState frame,
+        IntPtr mapBg,
+        IntPtr routePen,
+        IntPtr traveledPen,
+        IntPtr rejoinPen,
+        uint white,
+        uint muted)
+    {
+        const int left = ControlsWidth + 18;
+        const int top = 88;
+        const int right = Width - 18;
+        const int bottom = 386;
+        var mapRect = Rect(left, top, right, bottom);
+        FillRect(hdc, ref mapRect, mapBg);
+
+        if (frame.CenterX is not double cx || frame.CenterY is not double cy || frame.RadiusMeters <= 0d)
+        {
+            SetTextColor(hdc, muted);
+            DrawTextLine(hdc, left + 20, top + 20, "Posicao ainda indisponivel.");
+            return;
+        }
+
+        DrawRoute(hdc, frame.TraveledRoute, cx, cy, frame.RadiusMeters, left, top, right, bottom, traveledPen);
+        DrawRoute(hdc, frame.ForwardRoute, cx, cy, frame.RadiusMeters, left, top, right, bottom, routePen);
+        DrawRoute(hdc, frame.RejoinRoute, cx, cy, frame.RadiusMeters, left, top, right, bottom, rejoinPen);
+
+        foreach (var marker in frame.Markers.Take(120))
+        {
+            var p = ToScreen(marker.X, marker.Y, cx, cy, frame.RadiusMeters, left, top, right, bottom);
+            var radius = string.Equals(marker.Kind, "player", StringComparison.OrdinalIgnoreCase) ? 5 : 3;
+            var brush = CreateSolidBrush(
+                string.Equals(marker.Kind, "player", StringComparison.OrdinalIgnoreCase)
+                    ? Rgb(255, 205, 70)
+                    : string.Equals(marker.Kind, "ai", StringComparison.OrdinalIgnoreCase)
+                        ? Rgb(90, 220, 140)
+                        : Rgb(235, 235, 235));
+            var old = SelectObject(hdc, brush);
+            Ellipse(hdc, p.X - radius, p.Y - radius, p.X + radius, p.Y + radius);
+            SelectObject(hdc, old);
+            DeleteObject(brush);
+        }
+
+        var centerBrush = CreateSolidBrush(Rgb(255, 255, 255));
+        var oldCenter = SelectObject(hdc, centerBrush);
+        var center = ToScreen(cx, cy, cx, cy, frame.RadiusMeters, left, top, right, bottom);
+        Ellipse(hdc, center.X - 6, center.Y - 6, center.X + 6, center.Y + 6);
+        SelectObject(hdc, oldCenter);
+        DeleteObject(centerBrush);
+
+        SetTextColor(hdc, white);
+        DrawTextLine(hdc, left + 8, top + 8,
+            $"GPS · raio {frame.RadiusMeters:0} m · {frame.OrientationMode}");
+    }
+
+    private static void DrawRoute(
+        IntPtr hdc,
+        NavBR.Shared.PluginBridge.OpenOmsiRoutePoint[] points,
+        double cx,
+        double cy,
+        double radius,
+        int left,
+        int top,
+        int right,
+        int bottom,
+        IntPtr pen)
+    {
+        if (points.Length < 2)
+        {
+            return;
+        }
+
+        var old = SelectObject(hdc, pen);
+        var first = ToScreen(points[0].X, points[0].Y, cx, cy, radius, left, top, right, bottom);
+        MoveToEx(hdc, first.X, first.Y, IntPtr.Zero);
+        foreach (var point in points.Skip(1))
+        {
+            var p = ToScreen(point.X, point.Y, cx, cy, radius, left, top, right, bottom);
+            LineTo(hdc, p.X, p.Y);
+        }
+        SelectObject(hdc, old);
+    }
+
+    private static POINT ToScreen(
+        double x,
+        double y,
+        double cx,
+        double cy,
+        double radius,
+        int left,
+        int top,
+        int right,
+        int bottom)
+    {
+        var halfW = (right - left) / 2d;
+        var halfH = (bottom - top) / 2d;
+        var scale = Math.Min(halfW, halfH) / Math.Max(1d, radius);
+        return new POINT
+        {
+            X = (int)Math.Round(left + halfW + (x - cx) * scale),
+            Y = (int)Math.Round(top + halfH - (y - cy) * scale)
+        };
+    }
+
+    private static void DrawLiveFooter(
+        IntPtr hdc,
+        NavBR.Shared.PluginBridge.OpenOmsiOverlay2DFrameState frame,
+        uint white,
+        uint muted,
+        uint warning)
+    {
+        var x = ControlsWidth + 18;
+        var y = 399;
+
+        if (frame.TeleMatrixVisible)
+        {
+            SetTextColor(hdc, white);
+            DrawTextLine(hdc, x, y,
+                $"Linha {Safe(frame.TeleMatrixLine, "--")}  →  {Safe(frame.TeleMatrixDestination, "--")}");
+            SetTextColor(hdc, muted);
+            DrawTextLine(hdc, x, y + 23, $"Proxima: {Safe(frame.TeleMatrixNextStop, "--")}");
+
+            var delay = frame.TeleMatrixDelaySeconds;
+            SetTextColor(hdc, delay is > 120 or < -120 ? warning : white);
+            var delayText = delay is null
+                ? "atraso --"
+                : delay.Value >= 0
+                    ? $"+{delay.Value / 60}:{Math.Abs(delay.Value % 60):00}"
+                    : $"-{Math.Abs(delay.Value) / 60}:{Math.Abs(delay.Value % 60):00}";
+            DrawTextLine(hdc, x, y + 46, $"{delayText} · {Safe(frame.TeleMatrixPunctualityState, "unknown")}");
+        }
+
+        SetTextColor(hdc, muted);
+        var layers = $"IA {(frame.TrafficVisible ? "ON" : "OFF")} · Players {(frame.PlayersVisible ? "ON" : "OFF")} · " +
+                     $"Autozoom {(frame.AutoZoomEnabled ? "ON" : "OFF")} · Seguir {(frame.FollowVehicleEnabled ? "ON" : "OFF")}";
+        DrawTextLine(hdc, x, Height - 27, layers);
+    }
+
+    private static string Safe(string? value, string fallback) =>
+        string.IsNullOrWhiteSpace(value) ? fallback : value;
+
+    private static void DrawTextLine(IntPtr hdc, int x, int y, string text)
+    {
+        if (text.Length > 72)
+        {
+            text = text[..69] + "...";
+        }
+        TextOut(hdc, x, y, text, text.Length);
     }
 
     private static void PositionNearOpenOmsi(IntPtr owner)
@@ -318,8 +541,8 @@ internal static class OpenOmsiStandaloneOverlay
             return;
         }
 
-        var x = Math.Max(r.Left + 12, r.Right - Width - 24);
-        var y = r.Top + 48;
+        var x = Math.Max(r.Left + 8, r.Right - Width - 18);
+        var y = Math.Max(r.Top + 36, r.Top + 8);
         SetWindowPos(_window, new IntPtr(-1), x, y, Width, Height, 0x0010);
     }
 
@@ -327,9 +550,9 @@ internal static class OpenOmsiStandaloneOverlay
     {
         if (owner != IntPtr.Zero && GetWindowRect(owner, out var r))
         {
-            return (Math.Max(r.Left + 12, r.Right - Width - 24), r.Top + 48);
+            return (Math.Max(r.Left + 8, r.Right - Width - 18), r.Top + 36);
         }
-        return (100, 100);
+        return (80, 80);
     }
 
     private static IntPtr FindOpenOmsiWindow()
@@ -445,6 +668,12 @@ internal static class OpenOmsiStandaloneOverlay
     private static extern bool UnregisterHotKey(IntPtr hwnd, int id);
 
     [DllImport("user32.dll")]
+    private static extern UIntPtr SetTimer(IntPtr hwnd, int idEvent, uint elapse, IntPtr timerFunc);
+
+    [DllImport("user32.dll")]
+    private static extern bool KillTimer(IntPtr hwnd, int idEvent);
+
+    [DllImport("user32.dll")]
     private static extern bool PostMessage(IntPtr hwnd, uint msg, IntPtr wParam, IntPtr lParam);
 
     [DllImport("user32.dll")]
@@ -472,9 +701,6 @@ internal static class OpenOmsiStandaloneOverlay
     private static extern bool GetWindowRect(IntPtr hwnd, out RECT rect);
 
     [DllImport("user32.dll")]
-    private static extern bool IsWindow(IntPtr hwnd);
-
-    [DllImport("user32.dll")]
     private static extern bool IsWindowVisible(IntPtr hwnd);
 
     [DllImport("user32.dll")]
@@ -496,6 +722,12 @@ internal static class OpenOmsiStandaloneOverlay
     private static extern IntPtr CreateSolidBrush(uint color);
 
     [DllImport("gdi32.dll")]
+    private static extern IntPtr CreatePen(int style, int width, uint color);
+
+    [DllImport("gdi32.dll")]
+    private static extern IntPtr SelectObject(IntPtr hdc, IntPtr obj);
+
+    [DllImport("gdi32.dll")]
     private static extern bool DeleteObject(IntPtr obj);
 
     [DllImport("user32.dll")]
@@ -506,6 +738,15 @@ internal static class OpenOmsiStandaloneOverlay
 
     [DllImport("gdi32.dll")]
     private static extern uint SetTextColor(IntPtr hdc, uint color);
+
+    [DllImport("gdi32.dll")]
+    private static extern bool MoveToEx(IntPtr hdc, int x, int y, IntPtr oldPoint);
+
+    [DllImport("gdi32.dll")]
+    private static extern bool LineTo(IntPtr hdc, int x, int y);
+
+    [DllImport("gdi32.dll")]
+    private static extern bool Ellipse(IntPtr hdc, int left, int top, int right, int bottom);
 
     [DllImport("gdi32.dll", CharSet = CharSet.Unicode)]
     private static extern bool TextOut(IntPtr hdc, int x, int y, string text, int length);
