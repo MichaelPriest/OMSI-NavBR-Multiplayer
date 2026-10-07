@@ -10,6 +10,8 @@ public sealed record OpenOmsiTransportDescriptor(
     int Port,
     string SessionId)
 {
+    public string? SessionCode { get; init; }
+
     public bool IsValid =>
         Protocol == OpenOmsiLanProtocol.ProtocolVersion &&
         !string.IsNullOrWhiteSpace(Host) &&
