@@ -589,7 +589,10 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
             TrafficSnapshotReceived?.Invoke(snapshot);
         });
         connection.On<string?>("trafficAuthorityChanged", authorityPlayerId =>
-            SetTrafficAuthority(authorityPlayerId));
+        {
+            SetTrafficAuthority(authorityPlayerId);
+            _ = HandleOpenOmsiAuthorityChangedAsync();
+        });
         connection.On<string?>("roomOwnerChanged", ownerPlayerId =>
             SetRoomOwner(ownerPlayerId));
         connection.On<ChatMessage>("chatMessage", message => ChatMessageReceived?.Invoke(message));
@@ -611,6 +614,14 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
             {
                 var snapshot = await connection.InvokeAsync<RoomSnapshot>("JoinRoom", _joinRequest);
                 ApplyRoomSnapshotMetadata(snapshot);
+                lock (_openOmsiV6Sync)
+                {
+                    foreach (var player in snapshot.Players)
+                    {
+                        RememberOpenOmsiPresenceCore(player);
+                    }
+                }
+                await RepublishOpenOmsiV6PresenceAsync();
                 RoomSnapshotReceived?.Invoke(snapshot);
             }
 
