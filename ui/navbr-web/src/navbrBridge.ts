@@ -129,6 +129,7 @@ export interface NavBrMultiplayerState {
     isHost: boolean;
     port?: number | null;
     sessionCode?: string | null;
+    webSocketUrl?: string | null;
     role: "offline" | "host" | "client";
   };
   networkQuality: {
