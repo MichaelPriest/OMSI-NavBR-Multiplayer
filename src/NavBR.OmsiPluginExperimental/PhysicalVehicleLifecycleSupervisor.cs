@@ -30,6 +30,8 @@ internal static class PhysicalVehicleLifecycleSupervisor
     private static int _resetRequested;
     private static int _randomBusControlProbeAttempted;
     private static long _internalCommandSequence;
+    private static readonly Dictionary<string, string> LastVarProbeKey =
+        new(StringComparer.OrdinalIgnoreCase);
 
     public static int DesiredCount
     {
@@ -384,6 +386,7 @@ internal static class PhysicalVehicleLifecycleSupervisor
         {
             Entries.Clear();
             PendingRemovals.Clear();
+            LastVarProbeKey.Clear();
         }
 
         Interlocked.Exchange(ref _resetRequested, 0);
@@ -474,6 +477,7 @@ internal static class PhysicalVehicleLifecycleSupervisor
                              "active",
                              StringComparison.Ordinal))
                 {
+                    ProbeRemoteScriptVarBounds(entry.InstanceId, instance);
                     if (now < entry.NextAttemptTickMs ||
                         !entry.HasPendingTargetUpdate ||
                         !TryBuildInternalUpdate(
@@ -691,6 +695,48 @@ internal static class PhysicalVehicleLifecycleSupervisor
             command.PlayerId ??
             string.Empty).Trim();
         return instanceId.Length is > 0 and <= 128;
+    }
+
+    private static void ProbeRemoteScriptVarBounds(
+        string instanceId,
+        PhysicalVehicleInstance instance)
+    {
+        if (!RemoteVehicleVarsRegistry.TryGet(
+                instanceId,
+                out var snapshot) ||
+            snapshot.VarTableHash is not uint varTableHash ||
+            snapshot.Floats.Count == 0)
+        {
+            return;
+        }
+
+        var count =
+            OmsiNativeInterop.TryGetRoadVehiclePublicVarCount(
+                instance.VehiclePointer);
+        if (count < 0)
+        {
+            return;
+        }
+
+        var maxId = snapshot.Floats.Keys.Max();
+        var compatible = maxId < count;
+        var key =
+            $"{varTableHash:X8}:{count}:{maxId}:{compatible}";
+        lock (Sync)
+        {
+            if (LastVarProbeKey.TryGetValue(instanceId, out var previous) &&
+                string.Equals(previous, key, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            LastVarProbeKey[instanceId] = key;
+        }
+
+        PluginLogWriter.Enqueue(
+            $"physical-vars-probe id={instanceId} " +
+            $"table={varTableHash:X8} publicVars={count} " +
+            $"maxRemoteId={maxId} compatible={compatible}");
     }
 
     private static void RunRandomBusControlProbe(string instanceId)
