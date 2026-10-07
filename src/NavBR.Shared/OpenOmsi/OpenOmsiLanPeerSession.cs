@@ -411,6 +411,22 @@ public sealed class OpenOmsiLanPeerSession : IAsyncDisposable
             cancellationToken);
     }
 
+    public async Task BroadcastWorldDescriptionAsync(
+        OpenOmsiWorldDescription description,
+        CancellationToken cancellationToken = default)
+    {
+        EnsureConnected();
+        if (!IsHost)
+        {
+            return;
+        }
+
+        await BroadcastTextAsync(
+            OpenOmsiWorldDescriptionCodec.Encode(description),
+            null,
+            cancellationToken);
+    }
+
     public async Task SendWorldDescriptionUpAsync(
         OpenOmsiWorldDescription.Person description,
         CancellationToken cancellationToken = default)
