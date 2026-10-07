@@ -897,6 +897,48 @@ await using (var client = new OpenOmsiLanPeerSession())
             null,
             []));
 
+    await using (var lateClient = new OpenOmsiLanPeerSession())
+    {
+        var lateSawHostInfo =
+            new TaskCompletionSource<OpenOmsiLanVehicleInfo>(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+        var lateSawClientInfo =
+            new TaskCompletionSource<OpenOmsiLanVehicleInfo>(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+
+        lateClient.RemoteInfoReceived += infoValue =>
+        {
+            if (infoValue.PlayerId == 1)
+            {
+                lateSawHostInfo.TrySetResult(infoValue);
+            }
+            else if (infoValue.PlayerId == client.LocalPlayerId)
+            {
+                lateSawClientInfo.TrySetResult(infoValue);
+            }
+        };
+
+        await lateClient.JoinByCodeAsync(
+            loopbackCode,
+            world,
+            "Late Client",
+            @"Vehicles\MAN_NL_NG\MAN_EN92_main.bus");
+
+        var replayedHostInfo =
+            await lateSawHostInfo.Task.WaitAsync(TimeSpan.FromSeconds(3));
+        var replayedClientInfo =
+            await lateSawClientInfo.Task.WaitAsync(TimeSpan.FromSeconds(3));
+
+        Require(
+            replayedHostInfo.Name == "Host" &&
+            replayedHostInfo.Route == "76/1",
+            "late joiner did not receive cached host INFO");
+        Require(
+            replayedClientInfo.Name == "Client" &&
+            replayedClientInfo.Route == "76/2",
+            "late joiner did not receive cached peer INFO");
+    }
+
     await client.SendChatAsync("Olá pelo v6");
     var chatAtHost =
         await hostSawClientChat.Task.WaitAsync(TimeSpan.FromSeconds(3));
