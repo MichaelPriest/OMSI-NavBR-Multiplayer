@@ -196,6 +196,20 @@ Require(hello.World.Map == "maps/Grundorf/global.cfg", "HELLO map mismatch");
 Require(hello.Nonce == 0x0011223344556677UL, "HELLO nonce mismatch");
 
 
+
+var codeFixture = new OpenOmsiSessionCode(
+    OpenOmsiLanProtocol.ProtocolVersion,
+    IPAddress.Loopback,
+    27015,
+    0x0011_2233_4455UL);
+var encodedCode = codeFixture.Encode();
+Require(encodedCode.StartsWith("OMSI-", StringComparison.Ordinal), "session code prefix missing");
+Require(OpenOmsiSessionCode.TryDecode(encodedCode, out var decodedCode), "session code did not decode");
+Require(decodedCode.Protocol == OpenOmsiLanProtocol.ProtocolVersion, "session code protocol mismatch");
+Require(decodedCode.Address.Equals(IPAddress.Loopback), "session code address mismatch");
+Require(decodedCode.Port == 27015, "session code port mismatch");
+Require(decodedCode.Session == 0x0011_2233_4455UL, "session code session mismatch");
+
 await using (var host = new OpenOmsiLanPeerSession())
 await using (var client = new OpenOmsiLanPeerSession())
 {
@@ -231,8 +245,13 @@ await using (var client = new OpenOmsiLanPeerSession())
         }
     };
 
-    await client.JoinAsync(
-        new IPEndPoint(IPAddress.Loopback, host.Port.Value),
+    var loopbackCode = new OpenOmsiSessionCode(
+        OpenOmsiLanProtocol.ProtocolVersion,
+        IPAddress.Loopback,
+        checked((ushort)host.Port.Value),
+        host.SessionId).Encode();
+    await client.JoinByCodeAsync(
+        loopbackCode,
         world,
         "Client",
         @"Vehicles\MAN_NL_NG\MAN_EN92_main.bus");
@@ -285,7 +304,7 @@ await using (var client = new OpenOmsiLanPeerSession())
 }
 
 Console.WriteLine(
-    $"openOMSI LAN v6 smoke passed: STATE {packet.Length} bytes + heartbeat + clamps + INFO/HELLO + host/join + walker.");
+    $"openOMSI LAN v6 smoke passed: STATE {packet.Length} bytes + heartbeat + clamps + INFO/HELLO + host/join + session code + walker.");
 
 static void Require(bool condition, string message)
 {
