@@ -1545,12 +1545,47 @@ File.WriteAllText(
     105
     tile_183_105.map
     """);
+// Exercise the real OMSI TTR -> tile [spline] -> .sli lane geometry
+// pipeline. Empty tile files used to make this integration test fail before
+// it could ever verify route selection or GPS guidance.
+var routeTraceSplines = Path.Combine(routeTraceRoot, "Splines");
+Directory.CreateDirectory(routeTraceSplines);
+File.WriteAllText(
+    Path.Combine(routeTraceSplines, "NavBR-Smoke-Road.sli"),
+    string.Concat(Enumerable.Range(0, 14).Select(_ =>
+        "[path]\\n0\\n0\\n0\\n")));
 File.WriteAllText(
     Path.Combine(routeTraceMapDirectory, "tile_183_104.map"),
-    "; route smoke tile A");
+    """
+    [spline]
+    0
+    Splines\\NavBR-Smoke-Road.sli
+    733660
+    -1
+    -1
+    150
+    0
+    140
+    0
+    160
+    0
+    """);
 File.WriteAllText(
     Path.Combine(routeTraceMapDirectory, "tile_183_105.map"),
-    "; route smoke tile B");
+    """
+    [spline]
+    0
+    Splines\\NavBR-Smoke-Road.sli
+    733661
+    -1
+    -1
+    150
+    0
+    0
+    0
+    160
+    0
+    """);
 File.WriteAllText(
     Path.Combine(routeTraceTtData, "SmokeTrack.ttr"),
     """
