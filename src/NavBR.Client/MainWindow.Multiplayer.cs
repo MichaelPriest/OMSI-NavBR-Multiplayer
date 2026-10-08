@@ -691,8 +691,12 @@ public partial class MainWindow
                 ? " • SHA OK"
                 : " • SHA PENDING";
 
+            var sessionCode = multiplayer?.OpenOmsiSessionCodeForShell;
+            var sessionLabel = string.IsNullOrWhiteSpace(sessionCode)
+                ? string.Empty
+                : $" • CÓDIGO {sessionCode}";
             runtimeStatus =
-                $"RUNTIME • openOMSI • {streamState}{rate} • REMOTOS {gateway.RemotePlayers}{identity}";
+                $"RUNTIME • openOMSI • {streamState}{rate} • REMOTOS {gateway.RemotePlayers}{identity}{sessionLabel}";
             runtimeHealthy =
                 gateway.ClientConnected &&
                 gateway.LocalStateFrames > 0;
