@@ -67,6 +67,8 @@ public partial class HudOverlayWindow
 
     public event Action? InGamePanelOpened;
     public event Action? InGameConnectRequested;
+    public event Action<bool>? InGameHostRequested;
+    public event Action? InGameDisconnectRequested;
     public event Action? InGameAssistanceRequested;
     public event Action? InGameIncidentRequested;
     public event Action? InGameOperationalResolvedRequested;
@@ -290,6 +292,22 @@ public partial class HudOverlayWindow
         actionGrid.Children.Add(chatButton);
         actionGrid.Children.Add(_inGameRoleplayButton);
         actionGrid.Children.Add(_inGameConnectButton);
+        actionGrid.Children.Add(BuildInGameButton(
+            InGameText("CRIAR SALA LAN", "HOST LAN ROOM", "CREAR SALA LAN",
+                "LAN-RAUM HOSTEN", "HÉBERGER SALLE LAN"),
+            new SolidColorBrush(Color.FromRgb(24, 91, 68)),
+            () => InGameHostRequested?.Invoke(false)));
+        actionGrid.Children.Add(BuildInGameButton(
+            InGameText("CRIAR SALA INTERNET", "HOST INTERNET ROOM",
+                "CREAR SALA INTERNET", "INTERNET-RAUM HOSTEN",
+                "HÉBERGER SALLE INTERNET"),
+            new SolidColorBrush(Color.FromRgb(24, 104, 114)),
+            () => InGameHostRequested?.Invoke(true)));
+        actionGrid.Children.Add(BuildInGameButton(
+            InGameText("DESCONECTAR", "DISCONNECT", "DESCONECTAR",
+                "TRENNEN", "DÉCONNECTER"),
+            new SolidColorBrush(Color.FromRgb(112, 59, 49)),
+            () => InGameDisconnectRequested?.Invoke()));
         actionGrid.Children.Add(_inGameAssistanceButton);
         actionGrid.Children.Add(_inGameIncidentButton);
         actionGrid.Children.Add(_inGameResolvedButton);
@@ -1213,7 +1231,7 @@ public partial class HudOverlayWindow
             InGameText("CONECTAR A UMA SALA", "JOIN A ROOM", "CONECTAR A SALA",
                 "RAUM BEITRETEN", "REJOINDRE UNE SALLE"),
             InGameText(
-                "Defina a sala e use CONECTAR ONLINE nas ações rápidas",
+                "Defina a sala e use CONECTAR ONLINE ou CRIAR SALA nas ações rápidas",
                 "Enter a room and use CONNECT ONLINE in quick actions",
                 "Defina la sala y use CONECTAR ONLINE",
                 "Raum eingeben und ONLINE VERBINDEN wählen",
