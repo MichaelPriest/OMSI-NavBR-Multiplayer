@@ -1941,17 +1941,26 @@ try
         typeof(OmsiPluginBridgeServer).Assembly.GetType(
             "NavBR.Client.Multiplayer.RemotePhysicalVehicleCoordinator",
             throwOnError: true)!;
+    // The production converter is an instance member because rear-section
+    // conversion uses the coordinator's own physical road anchor resolver.
+    // Exercise that same code path with the real WorldPoseSmoke map.
+    var openOmsiCoordinator =
+        Activator.CreateInstance(
+            openOmsiCoordinatorType,
+            poseRootSource)
+        ?? throw new InvalidOperationException(
+            "openOMSI physical vehicle coordinator could not be created.");
     var applyOpenOmsiWorldAnchor =
         openOmsiCoordinatorType.GetMethod(
             "ApplyOpenOmsiWorldAnchor",
             BindingFlags.NonPublic |
-            BindingFlags.Static)
+            BindingFlags.Instance)
         ?? throw new InvalidOperationException(
             "openOMSI -> OMSI2 pose converter not found.");
     var convertedFrame =
         (PlayerTelemetryFrame)(
             applyOpenOmsiWorldAnchor.Invoke(
-                null,
+                openOmsiCoordinator,
                 [openOmsiFrame, anchorValue])
             ?? throw new InvalidOperationException(
                 "openOMSI -> OMSI2 pose converter returned null."));
