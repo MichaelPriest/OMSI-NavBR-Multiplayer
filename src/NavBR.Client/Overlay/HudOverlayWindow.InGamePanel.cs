@@ -1184,7 +1184,8 @@ public partial class HudOverlayWindow
             {
                 ChatHotkey = shortcut
             });
-            RefreshOmsiHotkeyConflicts(force: true);
+            var updated = MultiplayerSettingsStore.Load();
+            ConfigureHotkeys(updated.ChatHotkey, updated.VoiceHotkey);
             RefreshInGameHotkeyStatus();
         };
 
@@ -1204,7 +1205,8 @@ public partial class HudOverlayWindow
             {
                 VoiceHotkey = shortcut
             });
-            RefreshOmsiHotkeyConflicts(force: true);
+            var updated = MultiplayerSettingsStore.Load();
+            ConfigureHotkeys(updated.ChatHotkey, updated.VoiceHotkey);
             RefreshInGameHotkeyStatus();
         };
 
