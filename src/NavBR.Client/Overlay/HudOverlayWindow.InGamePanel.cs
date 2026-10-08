@@ -25,6 +25,10 @@ public partial class HudOverlayWindow
     private ComboBox? _inGameChatHotkeyCombo;
     private ComboBox? _inGameVoiceHotkeyCombo;
     private TextBlock? _inGameHotkeyStatusText;
+    private TextBox? _inGameServerUrlBox;
+    private TextBox? _inGameRoomIdBox;
+    private TextBox? _inGameDisplayNameBox;
+    private PasswordBox? _inGameRoomPasswordBox;
     private CheckBox? _inGameGroundGuidanceToggle;
     private TextBlock? _inGameGroundGuidanceStatusText;
     private CheckBox? _inGameFreeRoamToggle;
@@ -75,6 +79,27 @@ public partial class HudOverlayWindow
     public event Action<bool>? InGamePhysicalVehiclesChanged;
 
     public bool IsInGamePanelOpen => _inGamePanelOpen;
+
+    public (string? ServerUrl, string? RoomId, string? DisplayName, string? RoomPassword)
+        GetInGameConnectionParameters() =>
+        (
+            string.IsNullOrWhiteSpace(_inGameServerUrlBox?.Text)
+                ? null : _inGameServerUrlBox.Text.Trim(),
+            string.IsNullOrWhiteSpace(_inGameRoomIdBox?.Text)
+                ? null : _inGameRoomIdBox.Text.Trim(),
+            string.IsNullOrWhiteSpace(_inGameDisplayNameBox?.Text)
+                ? null : _inGameDisplayNameBox.Text.Trim(),
+            string.IsNullOrWhiteSpace(_inGameRoomPasswordBox?.Password)
+                ? null : _inGameRoomPasswordBox.Password
+        );
+
+    public void ClearInGameRoomPassword()
+    {
+        if (_inGameRoomPasswordBox is not null)
+        {
+            _inGameRoomPasswordBox.Clear();
+        }
+    }
 
     internal void InitializeInGamePanel()
     {
@@ -637,6 +662,13 @@ public partial class HudOverlayWindow
 
         InGamePanelOpened?.Invoke();
         RefreshInGameFeatureControls();
+        var connectionSettings = MultiplayerSettingsStore.Load();
+        if (_inGameServerUrlBox is not null)
+            _inGameServerUrlBox.Text = connectionSettings.ServerUrl;
+        if (_inGameRoomIdBox is not null)
+            _inGameRoomIdBox.Text = connectionSettings.RoomId;
+        if (_inGameDisplayNameBox is not null)
+            _inGameDisplayNameBox.Text = connectionSettings.DisplayName;
 
         _inGamePanelOpen = true;
         if (_inGameInputShield is not null)
@@ -1148,6 +1180,46 @@ public partial class HudOverlayWindow
         }
         roleplayControls.Children.Add(_inGameFreeRoamToggle);
 
+        // Physical multiplayer is joined through the room's openOMSI v6
+        // transport. Allow drivers to choose the actual server/room entirely
+        // inside OMSI instead of always joining the last saved room.
+        _inGameServerUrlBox = BuildInGameConnectionTextBox();
+        _inGameRoomIdBox = BuildInGameConnectionTextBox();
+        _inGameDisplayNameBox = BuildInGameConnectionTextBox();
+        _inGameRoomPasswordBox = new PasswordBox
+        {
+            Height = 34d,
+            Margin = new Thickness(4d),
+            Padding = new Thickness(9d, 5d, 9d, 5d),
+            Background = new SolidColorBrush(Color.FromRgb(18, 38, 52)),
+            Foreground = Brushes.White,
+            BorderBrush = new SolidColorBrush(Color.FromArgb(120, 84, 138, 164))
+        };
+        var connectionInputs = new StackPanel();
+        connectionInputs.Children.Add(BuildInGameSliderLabel(
+            InGameText("Servidor", "Server", "Servidor", "Server", "Serveur")));
+        connectionInputs.Children.Add(_inGameServerUrlBox);
+        connectionInputs.Children.Add(BuildInGameSliderLabel(
+            InGameText("Sala / código", "Room / code", "Sala / código", "Raum / Code", "Salle / code")));
+        connectionInputs.Children.Add(_inGameRoomIdBox);
+        connectionInputs.Children.Add(BuildInGameSliderLabel(
+            InGameText("Motorista", "Driver name", "Conductor", "Fahrer", "Conducteur")));
+        connectionInputs.Children.Add(_inGameDisplayNameBox);
+        connectionInputs.Children.Add(BuildInGameSliderLabel(
+            InGameText("Senha (opcional)", "Password (optional)", "Contraseña (opcional)",
+                "Passwort (optional)", "Mot de passe (optionnel)")));
+        connectionInputs.Children.Add(_inGameRoomPasswordBox);
+        onlineRp.Children.Add(BuildInGameSurfaceCard(
+            InGameText("CONECTAR A UMA SALA", "JOIN A ROOM", "CONECTAR A SALA",
+                "RAUM BEITRETEN", "REJOINDRE UNE SALLE"),
+            InGameText(
+                "Defina a sala e use CONECTAR ONLINE nas ações rápidas",
+                "Enter a room and use CONNECT ONLINE in quick actions",
+                "Defina la sala y use CONECTAR ONLINE",
+                "Raum eingeben und ONLINE VERBINDEN wählen",
+                "Indiquez la salle puis utilisez CONNEXION EN LIGNE"),
+            connectionInputs));
+
         onlineRp.Children.Add(BuildInGameSurfaceCard(
             InGameText(
                 "MULTIPLAYER",
@@ -1525,6 +1597,18 @@ public partial class HudOverlayWindow
             FontSize = 10d,
             FontWeight = FontWeights.Bold,
             Margin = new Thickness(5d, 10d, 5d, 5d)
+        };
+
+    private static TextBox BuildInGameConnectionTextBox() =>
+        new()
+        {
+            Height = 34d,
+            Margin = new Thickness(4d),
+            Padding = new Thickness(9d, 5d, 9d, 5d),
+            Background = new SolidColorBrush(Color.FromRgb(18, 38, 52)),
+            Foreground = Brushes.White,
+            BorderBrush = new SolidColorBrush(Color.FromArgb(120, 84, 138, 164)),
+            BorderThickness = new Thickness(1d)
         };
 
     private static ComboBox BuildInGameCombo() =>
