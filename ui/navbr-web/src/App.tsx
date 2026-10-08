@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { Component, FormEvent, type ErrorInfo, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { I18nProvider, useI18n } from "./i18n";
 import { NavBrIcon, type NavBrIconName } from "./NavBrIcon";
 import {
@@ -4562,6 +4562,40 @@ function Roleplay({ state, error }: { state: NavBrState | null; error: string | 
   return <RoleplayPanel state={state} error={error} />;
 }
 
+class MultiplayerErrorBoundary extends Component<
+  { children: ReactNode },
+  { message: string | null }
+> {
+  state = { message: null as string | null };
+
+  static getDerivedStateFromError(error: Error) {
+    return { message: error.message || "Erro desconhecido de interface" };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error("NavBR Multiplayer view failed", error, info.componentStack);
+  }
+
+  render() {
+    if (this.state.message) {
+      return (
+        <section className="card" role="alert">
+          <span className="eyebrow">MULTIPLAYER · ERRO DE INTERFACE</span>
+          <h2>Não foi possível exibir esta aba</h2>
+          <p>A interface encontrou um erro. O OMSI e a sessão existente não serão desconectados.</p>
+          <code>{this.state.message}</code>
+          <div className="room-actions">
+            <button className="button primary" onClick={() => this.setState({ message: null })}>
+              Tentar novamente
+            </button>
+          </div>
+        </section>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 function Multiplayer({
   state,
   error,
@@ -4812,7 +4846,7 @@ function Multiplayer({
 
   const publicRooms = useMemo(() => {
     const query = roomSearch.trim().toLocaleLowerCase();
-    const rooms = state?.roomDirectory.rooms ?? [];
+    const rooms = state?.roomDirectory?.rooms ?? [];
     if (!query) return rooms;
 
     return rooms.filter(room =>
@@ -4820,7 +4854,7 @@ function Multiplayer({
         .filter(Boolean)
         .some(value => String(value).toLocaleLowerCase().includes(query))
     );
-  }, [state?.roomDirectory.rooms, roomSearch]);
+  }, [state?.roomDirectory?.rooms, roomSearch]);
 
   const submitChat = (event: FormEvent) => {
     event.preventDefault();
@@ -5420,10 +5454,10 @@ function Multiplayer({
               </div>
               <button
                 className="button ghost"
-                disabled={Boolean(state?.roomDirectory.refreshing)}
+                disabled={Boolean(state?.roomDirectory?.refreshing)}
                 onClick={() => sendCommand("refreshPublicRooms", { serverUrl })}
               >
-                {state?.roomDirectory.refreshing
+                {state?.roomDirectory?.refreshing
                   ? pick("Atualizando…", "Refreshing…", "Actualizando…", "Wird aktualisiert…", "Actualisation…")
                   : pick("Atualizar", "Refresh", "Actualizar", "Aktualisieren", "Actualiser")}
               </button>
@@ -5435,10 +5469,10 @@ function Multiplayer({
               onChange={event => setRoomSearch(event.target.value)}
               placeholder={pick("Buscar sala, mapa, versão, ônibus ou HOF", "Search room, map, version, bus or HOF", "Buscar sala, mapa, versión, autobús o HOF", "Raum, Karte, Version, Bus oder HOF suchen", "Rechercher salle, carte, version, bus ou HOF")}
             />
-            {state?.roomDirectory.error && <div className="directory-error">{state.roomDirectory.error}</div>}
+            {state?.roomDirectory?.error && <div className="directory-error">{state.roomDirectory.error}</div>}
 
             <div className="public-room-list">
-              {state?.roomDirectory.refreshing ? (
+              {state?.roomDirectory?.refreshing ? (
                 <div className="empty-state compact-empty">
                   {pick("Buscando salas públicas…", "Loading public rooms…", "Buscando salas públicas…", "Öffentliche Räume werden geladen…", "Chargement des salles publiques…")}
                 </div>
@@ -6931,12 +6965,14 @@ export default function App() {
                   ? <Settings state={state} error={commandError} requestedTab={settingsTabRequest} />
                   : screen === "help"
                     ? <Help state={state} />
-                    : <Multiplayer
-                        state={state}
-                        error={commandError}
-                        onOpenNetwork={() => openSettingsTab("network")}
-                        onOpenHud={() => openSettingsTab("hud")}
-                      />}
+                    : <MultiplayerErrorBoundary>
+                        <Multiplayer
+                          state={state}
+                          error={commandError}
+                          onOpenNetwork={() => openSettingsTab("network")}
+                          onOpenHud={() => openSettingsTab("hud")}
+                        />
+                      </MultiplayerErrorBoundary>}
       </main>
     </div>
     </I18nProvider>
