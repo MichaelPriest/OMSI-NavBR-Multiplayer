@@ -23,6 +23,7 @@ public partial class MainWindow
         Array.Empty<TrafficVehicleState>();
     private bool _multiplayerLocalizationHooked;
     private bool _hudLifetimeHooked;
+    private bool _inGameConnectionBusy;
 
     private void MultiplayerButton_Loaded(object sender, RoutedEventArgs e)
     {
@@ -211,6 +212,8 @@ public partial class MainWindow
         hud.RoleplayButtonRequested += HandleHudRoleplayButtonRequestedForShell;
         hud.InGamePanelOpened += HandleHudInGamePanelOpened;
         hud.InGameConnectRequested += HandleHudInGameConnectRequested;
+        hud.InGameHostRequested += HandleHudInGameHostRequested;
+        hud.InGameDisconnectRequested += HandleHudInGameDisconnectRequested;
         hud.InGameAssistanceRequested += HandleHudInGameAssistanceRequested;
         hud.InGameIncidentRequested += HandleHudInGameIncidentRequested;
         hud.InGameOperationalResolvedRequested += HandleHudInGameOperationalResolvedRequested;
@@ -233,6 +236,8 @@ public partial class MainWindow
             hud.RoleplayButtonRequested -= HandleHudRoleplayButtonRequestedForShell;
             hud.InGamePanelOpened -= HandleHudInGamePanelOpened;
             hud.InGameConnectRequested -= HandleHudInGameConnectRequested;
+            hud.InGameHostRequested -= HandleHudInGameHostRequested;
+            hud.InGameDisconnectRequested -= HandleHudInGameDisconnectRequested;
             hud.InGameAssistanceRequested -= HandleHudInGameAssistanceRequested;
             hud.InGameIncidentRequested -= HandleHudInGameIncidentRequested;
             hud.InGameOperationalResolvedRequested -= HandleHudInGameOperationalResolvedRequested;
@@ -412,6 +417,24 @@ public partial class MainWindow
 
     private async void HandleHudInGameConnectRequested()
     {
+        if (_inGameConnectionBusy)
+        {
+            return;
+        }
+
+        _inGameConnectionBusy = true;
+        try
+        {
+            await ConnectFromInGamePanelAsync();
+        }
+        finally
+        {
+            _inGameConnectionBusy = false;
+        }
+    }
+
+    private async Task ConnectFromInGamePanelAsync()
+    {
         OpenMultiplayerCentralForShell(showWindow: false);
         if (_multiplayerWindow is null)
         {
@@ -428,7 +451,7 @@ public partial class MainWindow
         try
         {
             _hudOverlay?.SetInGameConnectionNotice(
-                "conectando ao último servidor/sala...");
+                "conectando à sala selecionada...");
             UpdateHudInGamePanelState();
 
             // Use the actual fields entered in the in-game menu. Passing
@@ -458,6 +481,88 @@ public partial class MainWindow
         }
         finally
         {
+            UpdateHudInGamePanelState();
+        }
+    }
+
+    private async void HandleHudInGameHostRequested(bool exposeInternet)
+    {
+        if (_inGameConnectionBusy)
+        {
+            return;
+        }
+
+        _inGameConnectionBusy = true;
+        try
+        {
+            OpenMultiplayerCentralForShell(showWindow: false);
+            if (_multiplayerWindow is null)
+            {
+                return;
+            }
+
+            if (_multiplayerWindow.IsConnected)
+            {
+                _hudOverlay?.SetInGameConnectionNotice(
+                    "desconecte da sala atual antes de hospedar outra");
+                return;
+            }
+
+            var inputs = _hudOverlay?.GetInGameConnectionParameters();
+            _hudOverlay?.SetInGameConnectionNotice(
+                exposeInternet ? "abrindo sala e acesso à internet..." : "abrindo sala LAN...");
+            await _multiplayerWindow.StartLocalHostFromWebAsync(
+                roomId: inputs?.RoomId,
+                displayName: inputs?.DisplayName,
+                createPrivateRoom: !string.IsNullOrWhiteSpace(inputs?.RoomPassword),
+                roomPassword: inputs?.RoomPassword,
+                exposeInternet: exposeInternet);
+            _hudOverlay?.ClearInGameRoomPassword();
+            _hudOverlay?.SetInGameConnectionNotice(
+                exposeInternet ? "sala hospedada • internet" : "sala hospedada • LAN");
+        }
+        catch (Exception ex)
+        {
+            var message = ex.Message.Trim();
+            if (message.Length > 120) message = message[..120] + "…";
+            _hudOverlay?.SetInGameConnectionNotice(
+                $"não foi possível hospedar • {message}");
+        }
+        finally
+        {
+            _inGameConnectionBusy = false;
+            UpdateHudInGamePanelState();
+        }
+    }
+
+    private async void HandleHudInGameDisconnectRequested()
+    {
+        if (_inGameConnectionBusy)
+        {
+            return;
+        }
+
+        _inGameConnectionBusy = true;
+        try
+        {
+            if (_multiplayerWindow is not null)
+            {
+                await _multiplayerWindow.StopLocalHostFromWebAsync();
+            }
+
+            _hudOverlay?.ClearInGameRoomPassword();
+            _hudOverlay?.SetInGameConnectionNotice("desconectado");
+        }
+        catch (Exception ex)
+        {
+            var message = ex.Message.Trim();
+            if (message.Length > 120) message = message[..120] + "…";
+            _hudOverlay?.SetInGameConnectionNotice(
+                $"falha ao desconectar • {message}");
+        }
+        finally
+        {
+            _inGameConnectionBusy = false;
             UpdateHudInGamePanelState();
         }
     }
