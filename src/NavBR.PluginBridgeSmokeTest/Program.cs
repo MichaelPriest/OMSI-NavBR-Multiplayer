@@ -1553,13 +1553,13 @@ Directory.CreateDirectory(routeTraceSplines);
 File.WriteAllText(
     Path.Combine(routeTraceSplines, "NavBR-Smoke-Road.sli"),
     string.Concat(Enumerable.Range(0, 14).Select(_ =>
-        "[path]\\n0\\n0\\n0\\n")));
+        "[path]\n0\n0\n0\n")));
 File.WriteAllText(
     Path.Combine(routeTraceMapDirectory, "tile_183_104.map"),
     """
     [spline]
     0
-    Splines\\NavBR-Smoke-Road.sli
+    Splines\NavBR-Smoke-Road.sli
     733660
     -1
     -1
@@ -1575,7 +1575,7 @@ File.WriteAllText(
     """
     [spline]
     0
-    Splines\\NavBR-Smoke-Road.sli
+    Splines\NavBR-Smoke-Road.sli
     733661
     -1
     -1
