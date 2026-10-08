@@ -725,9 +725,10 @@ internal static class PhysicalVehicleLifecycleSupervisor
         }
 
         var maxId = snapshot.Floats.Keys.Max();
-        var compatible = maxId < count;
+        var available = snapshot.Floats.Keys.Count(id => id < count);
+        var compatible = available == snapshot.Floats.Count;
         var key =
-            $"{varTableHash:X8}:{count}:{maxId}:{compatible}";
+            $"{varTableHash:X8}:{count}:{maxId}:{available}:{compatible}";
         lock (Sync)
         {
             if (LastVarProbeKey.TryGetValue(instanceId, out var previous) &&
@@ -742,7 +743,8 @@ internal static class PhysicalVehicleLifecycleSupervisor
         PluginLogWriter.Enqueue(
             $"physical-vars-probe id={instanceId} " +
             $"table={varTableHash:X8} publicVars={count} " +
-            $"maxRemoteId={maxId} compatible={compatible}");
+            $"maxRemoteId={maxId} availableVars={available} " +
+            $"totalVars={snapshot.Floats.Count} compatible={compatible}");
     }
 
     private static void PinRemoteScriptVars(
@@ -771,22 +773,25 @@ internal static class PhysicalVehicleLifecycleSupervisor
         var count =
             OmsiNativeInterop.TryGetRoadVehiclePublicVarCount(
                 instance.VehiclePointer);
-        if (scriptFloats.Length > 0)
+        // Some vehicles expose fewer live slots while their script initializes.
+        // Only apply verified in-bounds PublicVars; one unavailable slot must
+        // not prevent valid indicators and controls from synchronizing.
+        if (count <= 0)
         {
-            if (count <= 0)
-            {
-                return;
-            }
+            return;
+        }
 
-            var maxId = scriptFloats.Max(pair => pair.Key);
-            if (maxId >= count)
-            {
-                return;
-            }
+        var availableFloats = scriptFloats
+            .Where(pair => pair.Key < count)
+            .ToArray();
+        var skipped = scriptFloats.Length - availableFloats.Length;
+        if (availableFloats.Length == 0)
+        {
+            return;
         }
 
         var applied = 0;
-        foreach (var pair in scriptFloats)
+        foreach (var pair in availableFloats)
         {
             if (!float.IsFinite(pair.Value) ||
                 pair.Key >= count ||
@@ -828,7 +833,7 @@ internal static class PhysicalVehicleLifecycleSupervisor
         var receivedStrings = snapshot.Strings.Count;
 
         var successKey =
-            $"{varTableHash:X8}:ok:{count}:{applied}:strings-readonly={receivedStrings}";
+            $"{varTableHash:X8}:ok:{count}:{applied}:skipped={skipped}:strings-readonly={receivedStrings}";
         lock (Sync)
         {
             if (LastVarPinKey.TryGetValue(
@@ -848,7 +853,7 @@ internal static class PhysicalVehicleLifecycleSupervisor
         PluginLogWriter.Enqueue(
             $"physical-vars-pin id={instanceId} " +
             $"table={varTableHash:X8} status=active " +
-            $"vars={applied} publicVars={count} " +
+            $"vars={applied} skippedOutOfRange={skipped} publicVars={count} " +
             $"stringsReceived={receivedStrings} stringMode=read-only");
     }
 
