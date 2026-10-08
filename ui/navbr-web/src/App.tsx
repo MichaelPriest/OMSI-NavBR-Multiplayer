@@ -4574,7 +4574,45 @@ function Multiplayer({
   onOpenHud: () => void;
 }) {
   const { pick } = useI18n();
-  const multiplayer = state?.multiplayer ?? fallbackMultiplayer;
+  const incomingMultiplayer = state?.multiplayer;
+  // The native controller is created on demand. Its first snapshot may be
+  // partial (or come from an older installed runtime). Preserve a renderable
+  // disconnected page rather than dereferencing missing transport/voice data.
+  const multiplayer = useMemo<NavBrMultiplayerState>(() => {
+    const received = incomingMultiplayer ?? fallbackMultiplayer;
+    return {
+      ...fallbackMultiplayer,
+      ...received,
+      openOmsiV6: {
+        ...fallbackMultiplayer.openOmsiV6,
+        ...(received.openOmsiV6 ?? {})
+      },
+      networkQuality: {
+        ...fallbackMultiplayer.networkQuality,
+        ...(received.networkQuality ?? {})
+      },
+      sessionAuthority: {
+        ...fallbackMultiplayer.sessionAuthority,
+        ...(received.sessionAuthority ?? {})
+      },
+      roomCompatibility: {
+        ...fallbackMultiplayer.roomCompatibility,
+        ...(received.roomCompatibility ?? {})
+      },
+      voiceQuality: {
+        ...fallbackMultiplayer.voiceQuality,
+        ...(received.voiceQuality ?? {})
+      },
+      voiceMixers: Array.isArray(received.voiceMixers) ? received.voiceMixers : [],
+      voiceInputDevices: Array.isArray(received.voiceInputDevices) ? received.voiceInputDevices : [],
+      voiceOutputDevices: Array.isArray(received.voiceOutputDevices) ? received.voiceOutputDevices : [],
+      hotkeyOptions: Array.isArray(received.hotkeyOptions) ? received.hotkeyOptions : [],
+      inviteAddresses: Array.isArray(received.inviteAddresses) ? received.inviteAddresses : [],
+      players: Array.isArray(received.players) ? received.players : [],
+      sessionPoints: Array.isArray(received.sessionPoints) ? received.sessionPoints : [],
+      chat: Array.isArray(received.chat) ? received.chat : []
+    };
+  }, [incomingMultiplayer]);
   const telemetry = state?.telemetry;
   const mobileControls = state?.system?.mobileCompanion;
   const [tab, setTab] = useState<MultiplayerTab>("overview");
@@ -4601,6 +4639,12 @@ function Multiplayer({
   const [roomIntent, setRoomIntent] = useState<"create" | "join">("create");
   const [createRoomMode, setCreateRoomMode] = useState<"navbr" | "lan" | "host">("navbr");
   const defaultOnlineServer = "https://omsi-navbr-multiplayer-server.onrender.com";
+
+  useEffect(() => {
+    // Opening this tab must initialize its real native controller instead of
+    // waiting for the user to click a button on an incomplete first snapshot.
+    sendCommand("ensureMultiplayerController");
+  }, []);
 
   useEffect(() => {
     setServerUrl(current => current || multiplayer.serverUrl || defaultOnlineServer);
