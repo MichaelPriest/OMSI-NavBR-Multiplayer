@@ -123,13 +123,6 @@ internal sealed class OpenOmsiQuickTunnel : IAsyncDisposable
             "bin");
         Directory.CreateDirectory(root);
 
-        var executable = Path.Combine(root, "cloudflared.exe");
-        var marker = Path.Combine(root, "cloudflared.verified");
-        if (File.Exists(executable) && File.Exists(marker))
-        {
-            return executable;
-        }
-
         var amd64 = Environment.Is64BitOperatingSystem;
         var asset = amd64
             ? "cloudflared-windows-amd64.exe"
@@ -137,6 +130,22 @@ internal sealed class OpenOmsiQuickTunnel : IAsyncDisposable
         var expectedHash = amd64
             ? WindowsAmd64Sha256
             : Windows386Sha256;
+
+        // The x86 client, secondary desktop process and CI workflows can
+        // start simultaneously with the same LocalAppData. A shared .part
+        // filename races across processes. Use an immutable, version/hash-
+        // scoped executable plus a unique staging file instead.
+        var executable = Path.Combine(
+            root,
+            $"cloudflared-{Version}-{(amd64 ? "amd64" : "386")}-{expectedHash[..12]}.exe");
+        if (File.Exists(executable))
+        {
+            return await IsVerifiedCloudflaredAsync(
+                executable, expectedHash, cancellationToken)
+                ? executable
+                : null;
+        }
+
         var url =
             $"https://github.com/cloudflare/cloudflared/releases/download/{Version}/{asset}";
 
@@ -151,14 +160,69 @@ internal sealed class OpenOmsiQuickTunnel : IAsyncDisposable
             return null;
         }
 
-        var temp = executable + ".part";
-        await File.WriteAllBytesAsync(temp, data, cancellationToken);
-        File.Move(temp, executable, overwrite: true);
-        await File.WriteAllTextAsync(
-            marker,
-            $"{Version} {asset} {expectedHash}",
-            cancellationToken);
-        return executable;
+        var temp = Path.Combine(root, $"cloudflared-{Guid.NewGuid():N}.part");
+        try
+        {
+            await File.WriteAllBytesAsync(temp, data, cancellationToken);
+            try
+            {
+                // Atomic publish: do not overwrite an executable another OMSI
+                // instance may already be running.
+                File.Move(temp, executable);
+                return executable;
+            }
+            catch (IOException) when (File.Exists(executable))
+            {
+                // Another process won the installation race. Use its binary
+                // only after verifying the pinned SHA-256.
+                return await IsVerifiedCloudflaredAsync(
+                    executable, expectedHash, cancellationToken)
+                    ? executable
+                    : null;
+            }
+        }
+        finally
+        {
+            try
+            {
+                if (File.Exists(temp))
+                {
+                    File.Delete(temp);
+                }
+            }
+            catch (IOException)
+            {
+                // A failed cleanup must not mask cancellation or download errors.
+            }
+        }
+    }
+
+    private static async Task<bool> IsVerifiedCloudflaredAsync(
+        string path,
+        string expectedHash,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await using var stream = new FileStream(
+                path,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.ReadWrite);
+            var hash = await SHA256.HashDataAsync(stream, cancellationToken);
+            return string.Equals(
+                Convert.ToHexString(hash),
+                expectedHash,
+                StringComparison.OrdinalIgnoreCase);
+        }
+        catch (IOException)
+        {
+            return false;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return false;
+        }
     }
 
     private static string? FindOnPath(string fileName)
