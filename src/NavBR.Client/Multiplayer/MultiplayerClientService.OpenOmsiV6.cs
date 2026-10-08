@@ -1,0 +1,2569 @@
+using System.Net;
+using System.Net.Sockets;
+using Microsoft.AspNetCore.SignalR.Client;
+using NavBR.Client.OpenOmsi;
+using NavBR.Client.PluginBridge;
+using NavBR.Shared.Multiplayer;
+using NavBR.Shared.OpenOmsi;
+using NavBR.Shared.Telemetry;
+
+namespace NavBR.Client.Multiplayer;
+
+public sealed partial class MultiplayerClientService
+{
+    private readonly object _openOmsiV6Sync = new();
+    private readonly Dictionary<ushort, PlayerPresence> _openOmsiPresenceByLanId = [];
+    private readonly Dictionary<string, PlayerPresence> _openOmsiPresenceByPlayerId =
+        new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<ushort, OpenOmsiLanVehicleInfo> _openOmsiInfoByLanId = [];
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<ushort, OpenOmsiRemoteStateInterpolator>
+        _openOmsiStateInterpolatorByLanId = new();
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, OpenOmsiVarTableManifest>
+        _openOmsiVarTableByVehicle = new(StringComparer.OrdinalIgnoreCase);
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, OpenOmsiSyncTableManifest>
+        _openOmsiSyncTableByVehicle = new(StringComparer.OrdinalIgnoreCase);
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<ushort, string>
+        _openOmsiRemoteSyncProbeKey = new();
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<ushort, uint>
+        _openOmsiCompatibleRemoteSyncHash = new();
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<ushort, OpenOmsiSyncTableManifest>
+        _openOmsiCompatibleRemoteSyncTable = new();
+    private readonly Dictionary<(bool IsPerson, uint Id), OpenOmsiWorldDescription>
+        _openOmsiWorldDescriptions = [];
+    private readonly Dictionary<(ushort PlayerId, uint Id), OpenOmsiWorldDescription.Person>
+        _openOmsiClientWorldDescriptions = [];
+    private readonly Dictionary<uint, (OpenOmsiWorldCarState State, DateTimeOffset SeenAt)>
+        _openOmsiWorldCars = [];
+    private readonly Dictionary<(bool IsPerson, uint Id), DateTimeOffset>
+        _openOmsiWorldWantAt = [];
+    private readonly Dictionary<string, uint> _openOmsiTrafficWireIdByKey =
+        new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<uint> _openOmsiHostTrafficActiveIds = [];
+    private OpenOmsiLanPeerSession? _openOmsiV6Session;
+    private OpenOmsiWebSocketGateway? _openOmsiWebSocketGateway;
+    private OpenOmsiWebSocketClient? _openOmsiWebSocketClient;
+    private OpenOmsiQuickTunnel? _openOmsiQuickTunnel;
+    private string? _openOmsiPublicWebSocketUrl;
+    private string? _openOmsiCanonicalSessionCode;
+    private ushort _openOmsiLocalSequence;
+    private ushort _openOmsiWorldSequence;
+    private long _openOmsiTrafficReceiveSequence;
+    private uint? _openOmsiConfiguredLocalVarHash;
+    private string? _openOmsiConfiguredLocalSampleKey;
+    private DateTimeOffset? _openOmsiLastPublishedLocalVarsAt;
+    private RoleplayCharacterState? _openOmsiLocalRoleplayState;
+    private CancellationTokenSource? _openOmsiPlaybackCts;
+    private Task? _openOmsiPlaybackTask;
+
+    public bool UsesOpenOmsiV6Transport => _openOmsiV6Session?.IsRunning == true;
+    public bool IsOpenOmsiV6Host => _openOmsiV6Session?.IsHost == true;
+    public string? OpenOmsiV6SessionCode =>
+        _openOmsiCanonicalSessionCode ??
+        _openOmsiV6Session?.SessionCode;
+    public int? OpenOmsiV6Port => _openOmsiV6Session?.Port;
+    public string? OpenOmsiV6WebSocketUrl => _openOmsiPublicWebSocketUrl;
+
+    public string GetRemoteOpenOmsiVisualSyncStatus(
+        string playerId)
+    {
+        if (string.IsNullOrWhiteSpace(playerId))
+        {
+            return "none";
+        }
+
+        ushort lanId;
+        lock (_openOmsiV6Sync)
+        {
+            if (!_openOmsiPresenceByPlayerId.TryGetValue(
+                    playerId,
+                    out var presence) ||
+                presence.OpenOmsiLanId is not ushort mappedLanId ||
+                mappedLanId == 0)
+            {
+                return "none";
+            }
+
+            lanId = mappedLanId;
+        }
+
+        OpenOmsiLanVehicleInfo? info;
+        lock (_openOmsiV6Sync)
+        {
+            _openOmsiInfoByLanId.TryGetValue(lanId, out info);
+        }
+
+        if (info is null)
+        {
+            return "pending";
+        }
+
+        if (info.SyncTableHash == 0)
+        {
+            return "basic";
+        }
+
+        if (_openOmsiCompatibleRemoteSyncHash.TryGetValue(
+                lanId,
+                out var compatibleHash) &&
+            compatibleHash == info.SyncTableHash)
+        {
+            return "compatible";
+        }
+
+        if (_openOmsiRemoteSyncProbeKey.ContainsKey(lanId) &&
+            _openOmsiCompatibleRemoteSyncHash.TryGetValue(
+                lanId,
+                out compatibleHash) &&
+            compatibleHash == 0)
+        {
+            return "mismatch";
+        }
+
+        return "pending";
+    }
+
+    public uint? GetRemoteOpenOmsiVisualSyncHash(
+        string playerId)
+    {
+        if (string.IsNullOrWhiteSpace(playerId))
+        {
+            return null;
+        }
+
+        ushort lanId;
+        lock (_openOmsiV6Sync)
+        {
+            if (!_openOmsiPresenceByPlayerId.TryGetValue(
+                    playerId,
+                    out var presence) ||
+                presence.OpenOmsiLanId is not ushort mappedLanId ||
+                mappedLanId == 0)
+            {
+                return null;
+            }
+
+            lanId = mappedLanId;
+        }
+
+        lock (_openOmsiV6Sync)
+        {
+            return _openOmsiInfoByLanId.TryGetValue(
+                    lanId,
+                    out var info) &&
+                   info.SyncTableHash != 0
+                ? info.SyncTableHash
+                : null;
+        }
+    }
+
+    public event Action<OpenOmsiLanClock>? OpenOmsiClockReceived;
+    public event Action<OpenOmsiWorldFrame>? OpenOmsiWorldFrameReceived;
+    public event Action<ushort, OpenOmsiWorldFrame>? OpenOmsiClientWorldFrameReceived;
+
+    private void AttachOpenOmsiV6Handlers(
+        OpenOmsiLanPeerSession session)
+    {
+        session.RemoteInfoReceived += HandleOpenOmsiRemoteInfo;
+        session.RemoteStateReceived += HandleOpenOmsiRemoteState;
+        session.RemoteVarsReceived += HandleOpenOmsiRemoteVars;
+        session.ChatReceived += HandleOpenOmsiChat;
+        session.CommandReceived += HandleOpenOmsiCommand;
+        session.RemoteLeft += HandleOpenOmsiRemoteLeft;
+        session.ClockReceived += HandleOpenOmsiClock;
+        session.WorldFrameReceived += HandleOpenOmsiWorldFrame;
+        session.ClientWorldFrameReceived += HandleOpenOmsiClientWorldFrame;
+        session.WorldDescriptionReceived += HandleOpenOmsiWorldDescription;
+        session.WorldDescriptionsRequested +=
+            HandleOpenOmsiWorldDescriptionsRequested;
+        session.ClientWorldDescriptionReceived +=
+            HandleOpenOmsiClientWorldDescription;
+    }
+
+    private void HandleOpenOmsiClock(
+        OpenOmsiLanClock clock) =>
+        OpenOmsiClockReceived?.Invoke(clock);
+
+    private void HandleOpenOmsiWorldDescription(
+        OpenOmsiWorldDescription description)
+    {
+        lock (_openOmsiV6Sync)
+        {
+            _openOmsiWorldDescriptions[
+                (description is OpenOmsiWorldDescription.Person,
+                 description.Id)] = description;
+            _openOmsiWorldWantAt.Remove(
+                (description is OpenOmsiWorldDescription.Person,
+                 description.Id));
+        }
+
+        EmitOpenOmsiWorldTrafficSnapshot();
+    }
+
+    private void HandleOpenOmsiClientWorldDescription(
+        ushort playerId,
+        OpenOmsiWorldDescription.Person description)
+    {
+        lock (_openOmsiV6Sync)
+        {
+            _openOmsiClientWorldDescriptions[
+                (playerId, description.Id)] = description;
+        }
+    }
+
+    private void HandleOpenOmsiWorldDescriptionsRequested(
+        ushort playerId,
+        IReadOnlyList<OpenOmsiWorldEntityRef> references) =>
+        _ = RespondToOpenOmsiWorldDescriptionRequestAsync(
+            playerId,
+            references);
+
+    private async Task RespondToOpenOmsiWorldDescriptionRequestAsync(
+        ushort playerId,
+        IReadOnlyList<OpenOmsiWorldEntityRef> references)
+    {
+        var session = _openOmsiV6Session;
+        if (session?.IsHost != true)
+        {
+            return;
+        }
+
+        foreach (var reference in references.Take(64))
+        {
+            OpenOmsiWorldDescription? description;
+            lock (_openOmsiV6Sync)
+            {
+                _openOmsiWorldDescriptions.TryGetValue(
+                    (reference.IsPerson, reference.Id),
+                    out description);
+            }
+
+            if (description is null)
+            {
+                continue;
+            }
+
+            await session.SendWorldDescriptionAsync(
+                playerId,
+                description);
+        }
+    }
+
+    private void HandleOpenOmsiClientWorldFrame(
+        ushort playerId,
+        OpenOmsiWorldFrame frame) =>
+        OpenOmsiClientWorldFrameReceived?.Invoke(
+            playerId,
+            frame);
+
+    private void HandleOpenOmsiWorldFrame(
+        OpenOmsiWorldFrame frame)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var missing = new List<OpenOmsiWorldEntityRef>();
+
+        lock (_openOmsiV6Sync)
+        {
+            foreach (var car in frame.Cars)
+            {
+                _openOmsiWorldCars[car.Id] =
+                    (car, now);
+                var key = (IsPerson: false, car.Id);
+                if (!_openOmsiWorldDescriptions.ContainsKey(key) &&
+                    (!_openOmsiWorldWantAt.TryGetValue(
+                         key,
+                         out var wantedAt) ||
+                     now - wantedAt >
+                         TimeSpan.FromMilliseconds(800)))
+                {
+                    _openOmsiWorldWantAt[key] = now;
+                    missing.Add(
+                        new OpenOmsiWorldEntityRef(
+                            false,
+                            car.Id));
+                }
+            }
+
+            foreach (var gone in frame.Gone)
+            {
+                if (!gone.IsPerson)
+                {
+                    _openOmsiWorldCars.Remove(gone.Id);
+                    _openOmsiWorldDescriptions.Remove(
+                        (false, gone.Id));
+                    _openOmsiWorldWantAt.Remove(
+                        (false, gone.Id));
+                }
+            }
+
+            foreach (var stale in _openOmsiWorldCars
+                         .Where(pair =>
+                             now - pair.Value.SeenAt >
+                             TimeSpan.FromSeconds(4))
+                         .Select(pair => pair.Key)
+                         .ToArray())
+            {
+                _openOmsiWorldCars.Remove(stale);
+            }
+        }
+
+        OpenOmsiWorldFrameReceived?.Invoke(frame);
+
+        if (missing.Count > 0 &&
+            _openOmsiV6Session?.IsHost == false)
+        {
+            _ = _openOmsiV6Session
+                .RequestWorldDescriptionsAsync(missing);
+        }
+
+        EmitOpenOmsiWorldTrafficSnapshot();
+    }
+
+    private async Task ConfigureOpenOmsiV6Async(
+        RoomSnapshot snapshot,
+        CancellationToken cancellationToken)
+    {
+        await StopOpenOmsiV6Async();
+
+        lock (_openOmsiV6Sync)
+        {
+            _openOmsiPresenceByLanId.Clear();
+            _openOmsiPresenceByPlayerId.Clear();
+            foreach (var player in snapshot.Players)
+            {
+                RememberOpenOmsiPresenceCore(player);
+            }
+        }
+
+        if (_joinRequest is null)
+        {
+            return;
+        }
+
+        var world = new OpenOmsiLanWorld(
+            NormalizeOpenOmsiMapPath(_joinRequest.MapName),
+            DateOnly.FromDateTime(DateTime.Now).ToString("yyyy-MM-dd"),
+            0d,
+            string.Empty,
+            string.Empty);
+
+        var session = new OpenOmsiLanPeerSession();
+        AttachOpenOmsiV6Handlers(session);
+        _openOmsiV6Session = session;
+        StartOpenOmsiPlaybackLoop();
+
+        if (IsTrafficAuthority)
+        {
+            await session.StartHostAsync(world, cancellationToken);
+            await StartOpenOmsiWebSocketGatewayAsync(session, cancellationToken);
+            await PublishOpenOmsiTransportPresenceAsync(
+                session,
+                ResolveLanAdvertiseAddress(),
+                cancellationToken);
+            return;
+        }
+
+        var authority = snapshot.Players.FirstOrDefault(player =>
+            string.Equals(
+                player.PlayerId,
+                snapshot.TrafficAuthorityPlayerId,
+                StringComparison.OrdinalIgnoreCase));
+
+        if (authority?.OpenOmsiTransport is { IsValid: true } transport)
+        {
+            await JoinAdvertisedOpenOmsiTransportAsync(
+                transport,
+                world,
+                cancellationToken);
+            if (_openOmsiV6Session?.IsRunning == true)
+            {
+                return;
+            }
+        }
+
+        // Sidecar discovery can lag behind the physical session. Fall back to
+        // the native openOMSI LAN discovery packet so local rooms remain usable
+        // without waiting for the service plane.
+        var discovered = await OpenOmsiLanPeerSession.DiscoverHostAsync(
+            cancellationToken);
+        if (discovered is not null)
+        {
+            await session.JoinAsync(
+                discovered,
+                world,
+                _joinRequest.DisplayName,
+                _joinRequest.Compatibility?.VehiclePath,
+                cancellationToken);
+
+            var connection = _connection;
+            if (connection?.State == HubConnectionState.Connected)
+            {
+                await connection.InvokeAsync(
+                    "UpdateOpenOmsiLanId",
+                    (ushort?)session.LocalPlayerId,
+                    cancellationToken);
+            }
+            return;
+        }
+
+        // Keep NavBR services connected and wait for the authority transport
+        // advertisement if no LAN host answered discovery.
+        await session.DisposeAsync();
+        if (ReferenceEquals(_openOmsiV6Session, session))
+        {
+            _openOmsiV6Session = null;
+        }
+    }
+
+    private async Task JoinAdvertisedOpenOmsiTransportAsync(
+        OpenOmsiTransportDescriptor transport,
+        OpenOmsiLanWorld world,
+        CancellationToken cancellationToken)
+    {
+        var session = _openOmsiV6Session;
+        if (session is null)
+        {
+            session = new OpenOmsiLanPeerSession();
+            AttachOpenOmsiV6Handlers(session);
+            _openOmsiV6Session = session;
+            StartOpenOmsiPlaybackLoop();
+        }
+
+        if (session.IsRunning)
+        {
+            if (!string.IsNullOrWhiteSpace(transport.SessionCode))
+            {
+                _openOmsiCanonicalSessionCode = transport.SessionCode;
+            }
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(transport.SessionCode))
+        {
+            _openOmsiCanonicalSessionCode = transport.SessionCode;
+        }
+
+        Exception? udpError = null;
+        if (transport.HasUdpEndpoint &&
+            IPAddress.TryParse(transport.Host, out var hostAddress))
+        {
+            try
+            {
+                await session.JoinAsync(
+                    new IPEndPoint(hostAddress, transport.Port),
+                    world,
+                    _joinRequest?.DisplayName ?? "Driver",
+                    _joinRequest?.Compatibility?.VehiclePath,
+                    cancellationToken);
+            }
+            catch (Exception ex) when (
+                transport.HasWebSocketEndpoint &&
+                ex is TimeoutException or SocketException)
+            {
+                udpError = ex;
+            }
+        }
+
+        if (!session.IsRunning || session.LocalPlayerId == 0)
+        {
+            if (!transport.HasWebSocketEndpoint)
+            {
+                if (udpError is not null)
+                {
+                    throw udpError;
+                }
+                return;
+            }
+
+            _openOmsiWebSocketClient = await OpenOmsiWebSocketClient.ConnectAsync(
+                transport.WebSocketUrl!,
+                cancellationToken);
+            await session.JoinAsync(
+                _openOmsiWebSocketClient.LocalEndpoint,
+                world,
+                _joinRequest?.DisplayName ?? "Driver",
+                _joinRequest?.Compatibility?.VehiclePath,
+                cancellationToken);
+        }
+
+        var connection = _connection;
+        if (connection?.State == HubConnectionState.Connected)
+        {
+            await connection.InvokeAsync(
+                "UpdateOpenOmsiLanId",
+                (ushort?)session.LocalPlayerId,
+                cancellationToken);
+        }
+    }
+
+    private async Task PublishOpenOmsiTransportPresenceAsync(
+        OpenOmsiLanPeerSession session,
+        string address,
+        CancellationToken cancellationToken)
+    {
+        var connection = _connection;
+        if (connection?.State != HubConnectionState.Connected ||
+            session.Port is not int port)
+        {
+            return;
+        }
+
+        var canonicalSessionCode = session.SessionCode;
+        if (IPAddress.TryParse(address, out var advertisedAddress))
+        {
+            canonicalSessionCode = new OpenOmsiSessionCode(
+                OpenOmsiLanProtocol.ProtocolVersion,
+                advertisedAddress,
+                checked((ushort)port),
+                session.SessionId).Encode();
+        }
+
+        _openOmsiCanonicalSessionCode = canonicalSessionCode;
+
+        var descriptor = new OpenOmsiTransportDescriptor(
+            OpenOmsiLanProtocol.ProtocolVersion,
+            address,
+            port,
+            OpenOmsiLanProtocol.SessionHex(session.SessionId))
+        {
+            SessionCode = canonicalSessionCode,
+            WebSocketUrl = _openOmsiPublicWebSocketUrl
+        };
+
+        await connection.InvokeAsync(
+            "UpdateOpenOmsiTransport",
+            descriptor,
+            cancellationToken);
+        await connection.InvokeAsync(
+            "UpdateOpenOmsiLanId",
+            (ushort?)session.LocalPlayerId,
+            cancellationToken);
+    }
+
+    private async Task HandleOpenOmsiPresenceAsync(PlayerPresence presence)
+    {
+        lock (_openOmsiV6Sync)
+        {
+            RememberOpenOmsiPresenceCore(presence);
+        }
+
+        if (IsTrafficAuthority ||
+            _openOmsiV6Session?.IsRunning == true ||
+            !string.Equals(
+                presence.PlayerId,
+                TrafficAuthorityPlayerId,
+                StringComparison.OrdinalIgnoreCase) ||
+            presence.OpenOmsiTransport is not { IsValid: true } transport)
+        {
+            return;
+        }
+
+        var world = new OpenOmsiLanWorld(
+            NormalizeOpenOmsiMapPath(_joinRequest?.MapName),
+            DateOnly.FromDateTime(DateTime.Now).ToString("yyyy-MM-dd"),
+            0d,
+            string.Empty,
+            string.Empty);
+
+        try
+        {
+            await JoinAdvertisedOpenOmsiTransportAsync(
+                transport,
+                world,
+                CancellationToken.None);
+        }
+        catch
+        {
+            // Sidecar stays alive; the reconnect path can retry when presence
+            // or room metadata changes.
+        }
+    }
+
+    private void RememberOpenOmsiPresenceCore(PlayerPresence player)
+    {
+        _openOmsiPresenceByPlayerId[player.PlayerId] = player;
+        foreach (var stale in _openOmsiPresenceByLanId
+                     .Where(pair => string.Equals(
+                         pair.Value.PlayerId,
+                         player.PlayerId,
+                         StringComparison.OrdinalIgnoreCase))
+                     .Select(pair => pair.Key)
+                     .ToArray())
+        {
+            _openOmsiPresenceByLanId.Remove(stale);
+        }
+
+        if (player.OpenOmsiLanId is ushort id && id != 0)
+        {
+            _openOmsiPresenceByLanId[id] = player;
+        }
+    }
+
+    private void HandleOpenOmsiRemoteInfo(OpenOmsiLanVehicleInfo info)
+    {
+        OpenOmsiLanVehicleInfo? previousInfo;
+        lock (_openOmsiV6Sync)
+        {
+            _openOmsiInfoByLanId.TryGetValue(
+                info.PlayerId,
+                out previousInfo);
+            _openOmsiInfoByLanId[info.PlayerId] = info;
+        }
+
+        if (previousInfo is not null &&
+            !string.Equals(
+                previousInfo.VehiclePath,
+                info.VehiclePath,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            if (_openOmsiStateInterpolatorByLanId.TryGetValue(
+                    info.PlayerId,
+                    out var existingInterpolator))
+            {
+                existingInterpolator.Reset();
+            }
+        }
+
+        var vehiclePath = info.VehiclePath?.Trim() ?? string.Empty;
+        var probeKey =
+            $"{vehiclePath}|{info.SyncTableHash:X8}";
+        if (_openOmsiRemoteSyncProbeKey.TryGetValue(
+                info.PlayerId,
+                out var previous) &&
+            string.Equals(
+                previous,
+                probeKey,
+                StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        _openOmsiRemoteSyncProbeKey[info.PlayerId] = probeKey;
+        _openOmsiCompatibleRemoteSyncHash[info.PlayerId] = 0u;
+        _openOmsiCompatibleRemoteSyncTable.TryRemove(info.PlayerId, out _);
+        _ = ResolveRemoteOpenOmsiSyncCompatibilityAsync(
+            info,
+            probeKey);
+    }
+
+    private async Task ResolveRemoteOpenOmsiSyncCompatibilityAsync(
+        OpenOmsiLanVehicleInfo info,
+        string probeKey)
+    {
+        if (info.SyncTableHash == 0 ||
+            string.IsNullOrWhiteSpace(info.VehiclePath))
+        {
+            return;
+        }
+
+        var variables =
+            await ResolveLocalOpenOmsiVarTableAsync(
+                info.VehiclePath);
+        if (variables is null)
+        {
+            return;
+        }
+
+        var syncTable =
+            await ResolveLocalOpenOmsiSyncTableAsync(
+                info.VehiclePath,
+                variables);
+
+        if (!_openOmsiRemoteSyncProbeKey.TryGetValue(
+                info.PlayerId,
+                out var currentKey) ||
+            !string.Equals(
+                currentKey,
+                probeKey,
+                StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        if (syncTable?.Hash == info.SyncTableHash)
+        {
+            _openOmsiCompatibleRemoteSyncHash[info.PlayerId] =
+                info.SyncTableHash;
+            _openOmsiCompatibleRemoteSyncTable[info.PlayerId] =
+                syncTable;
+        }
+        else
+        {
+            _openOmsiCompatibleRemoteSyncHash[info.PlayerId] = 0u;
+            _openOmsiCompatibleRemoteSyncTable.TryRemove(
+                info.PlayerId,
+                out _);
+        }
+    }
+
+    private void HandleOpenOmsiRemoteState(OpenOmsiLanVehicleState state)
+    {
+        var interpolator =
+            _openOmsiStateInterpolatorByLanId.GetOrAdd(
+                state.PlayerId,
+                static _ =>
+                    new OpenOmsiRemoteStateInterpolator());
+        _ = interpolator.TryPushAndInterpolate(
+            state,
+            out _);
+    }
+
+    private void ApplyOpenOmsiRenderedState(OpenOmsiLanVehicleState state)
+    {
+        PlayerPresence? presence;
+        OpenOmsiLanVehicleInfo? info;
+        lock (_openOmsiV6Sync)
+        {
+            _openOmsiPresenceByLanId.TryGetValue(state.PlayerId, out presence);
+            _openOmsiInfoByLanId.TryGetValue(state.PlayerId, out info);
+        }
+
+        if (presence is null || _joinRequest is null)
+        {
+            return;
+        }
+
+        _openOmsiCompatibleRemoteSyncTable.TryGetValue(
+            state.PlayerId,
+            out var compatibleSyncTable);
+
+        var visualSyncCompatible =
+            info is { SyncTableHash: > 0 } &&
+            _openOmsiCompatibleRemoteSyncHash.TryGetValue(
+                state.PlayerId,
+                out var compatibleHash) &&
+            compatibleHash == info.SyncTableHash &&
+            compatibleSyncTable is not null &&
+            compatibleSyncTable.Hash == info.SyncTableHash &&
+            HasCompatibleOpenOmsiVisualState(
+                state,
+                compatibleSyncTable);
+
+        var doors = VehicleDoorFlags.None;
+        if (visualSyncCompatible)
+        {
+            for (var index = 0;
+                 index < Math.Min(5, state.Doors.Count);
+                 index++)
+            {
+                if (state.Doors[index] <= 0.02f)
+                {
+                    continue;
+                }
+
+                doors |= index switch
+                {
+                    0 => VehicleDoorFlags.Front,
+                    1 => VehicleDoorFlags.Middle,
+                    2 => VehicleDoorFlags.Rear,
+                    3 => VehicleDoorFlags.Extra1,
+                    4 => VehicleDoorFlags.Extra2,
+                    _ => VehicleDoorFlags.None
+                };
+            }
+        }
+
+        var lights = VehicleLightFlags.None;
+        if (state.HeadLightLevel >= 1) lights |= VehicleLightFlags.Position;
+        if (state.HeadLightLevel >= 2) lights |= VehicleLightFlags.LowBeam;
+        if (state.HeadLightLevel >= 3) lights |= VehicleLightFlags.HighBeam;
+        if (state.InteriorLightLevel > 0) lights |= VehicleLightFlags.Interior;
+        if ((state.Flags & OpenOmsiLanProtocol.FlagFog) != 0) lights |= VehicleLightFlags.Fog;
+        if ((state.Flags & OpenOmsiLanProtocol.FlagBrake) != 0) lights |= VehicleLightFlags.Brake;
+        if ((state.Flags & OpenOmsiLanProtocol.FlagReverse) != 0) lights |= VehicleLightFlags.Reverse;
+
+        var turn = state.TurnSignal switch
+        {
+            1 => TurnSignalState.Left,
+            2 => TurnSignalState.Right,
+            3 => TurnSignalState.Hazard,
+            _ => TurnSignalState.Off
+        };
+
+        float[]? remoteVisualValues = null;
+        ushort[]? remoteVisualValueIds = null;
+        if (visualSyncCompatible)
+        {
+            var values = state.Values.ToList();
+            var ids = compatibleSyncTable!.ValueIds.ToList();
+
+            void AddAux(ushort? id, float value)
+            {
+                if (id is not ushort variableId ||
+                    ids.Contains(variableId) ||
+                    !float.IsFinite(value))
+                {
+                    return;
+                }
+
+                ids.Add(variableId);
+                values.Add(value);
+            }
+
+            AddAux(
+                compatibleSyncTable.EngineNId,
+                state.EngineRpm);
+
+            var engineActive =
+                (state.Flags & OpenOmsiLanProtocol.FlagEngine) != 0 ||
+                ((state.Flags & OpenOmsiLanProtocol.FlagElectrics) != 0 &&
+                 compatibleSyncTable.EngineNId is not null)
+                    ? 1f
+                    : -1f;
+            AddAux(
+                compatibleSyncTable.AiEngineId,
+                engineActive);
+
+            var lightInput = state.HeadLightLevel switch
+            {
+                1 => 0.5f,
+                2 => 1f,
+                >= 3 => 2f,
+                _ => 0f
+            };
+            AddAux(
+                compatibleSyncTable.AiLightId,
+                lightInput);
+            AddAux(
+                compatibleSyncTable.AiInteriorId,
+                state.InteriorLightLevel > 0 ? 1f : 0f);
+            AddAux(
+                compatibleSyncTable.ThrottleId,
+                state.Throttle);
+            AddAux(
+                compatibleSyncTable.BrakeId,
+                state.Brake);
+
+            remoteVisualValues = values.ToArray();
+            remoteVisualValueIds = ids.ToArray();
+        }
+
+        var timestamp = DateTimeOffset.UtcNow;
+        var telemetry = new VehicleTelemetry(
+            presence.PlayerId,
+            timestamp,
+            presence.MapName,
+            info?.VehiclePath is { Length: > 0 } path
+                ? Path.GetFileNameWithoutExtension(path)
+                : presence.Compatibility?.VehiclePath is { Length: > 0 } compatPath
+                    ? Path.GetFileNameWithoutExtension(compatPath)
+                    : null,
+            info?.Line,
+            info?.Tour,
+            state.X,
+            state.Z,
+            state.Y,
+            state.HeadingDegrees,
+            state.SpeedKph,
+            (state.Flags & OpenOmsiLanProtocol.FlagVehicle) != 0,
+            MapCompatibilityId: presence.MapCompatibilityId,
+            DestinationName: info?.Destination,
+            VehiclePath: (info?.VehiclePath ?? presence.Compatibility?.VehiclePath)?.Replace('/', '\\'),
+            ThrottlePercent: state.Throttle * 100d,
+            BrakePercent: state.Brake * 100d,
+            SteeringDegrees: state.SteeringDegrees,
+            Doors: doors,
+            Lights: lights,
+            TurnSignal: turn,
+            HornActive: (state.Flags & OpenOmsiLanProtocol.FlagHorn) != 0,
+            WipersActive: (state.Flags & OpenOmsiLanProtocol.FlagWipers) != 0,
+            ParkingBrakeActive: (state.Flags & OpenOmsiLanProtocol.FlagStopBrake) != 0,
+            ReverseGear: (state.Flags & OpenOmsiLanProtocol.FlagReverse) != 0,
+            VehicleCompatibilityId: presence.Compatibility?.VehicleCompatibilityId,
+            HofCompatibilityId: presence.Compatibility?.HofCompatibilityId,
+            SourceTimestampUnixMilliseconds: timestamp.ToUnixTimeMilliseconds(),
+            RearSections: state.RearSections
+                .Take(OpenOmsiLanProtocol.MaxRearSections)
+                .Select(section =>
+                {
+                    var half = section.HeadingDegrees * (Math.PI / 360d);
+                    return new VehicleSectionPose(
+                        LocalX: section.X,
+                        LocalY: section.Z,
+                        LocalZ: section.Y,
+                        RotationX: 0d,
+                        RotationY: Math.Sin(half),
+                        RotationZ: 0d,
+                        RotationW: Math.Cos(half),
+                        GridX: 0,
+                        GridY: 0,
+                        MapTileIndex: null);
+                })
+                .ToArray(),
+            SyncTableHash:
+                visualSyncCompatible ? info?.SyncTableHash : null,
+            OpenOmsiLamps:
+                visualSyncCompatible ? state.Lamps.ToArray() : null,
+            OpenOmsiSwitches:
+                visualSyncCompatible ? state.Switches.ToArray() : null,
+            OpenOmsiValues:
+                remoteVisualValues,
+            OpenOmsiDoors:
+                visualSyncCompatible ? state.Doors.ToArray() : null,
+            OpenOmsiLampIds:
+                visualSyncCompatible
+                    ? compatibleSyncTable!.LampIds.ToArray()
+                    : null,
+            OpenOmsiSwitchIds:
+                visualSyncCompatible
+                    ? compatibleSyncTable!.SwitchIds.ToArray()
+                    : null,
+            OpenOmsiValueIds:
+                remoteVisualValueIds,
+            OpenOmsiDoorIds:
+                visualSyncCompatible
+                    ? compatibleSyncTable!.DoorIds.ToArray()
+                    : null);
+
+        var frame = new PlayerTelemetryFrame(presence, telemetry);
+        TelemetryReceived?.Invoke(frame);
+
+        // This frame came from the authenticated room's openOMSI v6 peer and
+        // has a matching INFO vehicle identity. Convert the openOMSI world
+        // pose into the receiver's real OMSI Kachel/local coordinate system
+        // before the plugin is allowed to touch a native RoadVehicle.
+        PlayerTelemetryFrame? physicalFrame = null;
+        var physicalStateAdmitted =
+            (state.Flags & OpenOmsiLanProtocol.FlagVehicle) != 0 &&
+            info?.VehiclePath is { Length: > 0 } &&
+            TryBuildOpenOmsiPhysicalFrame(
+                frame,
+                state,
+                out physicalFrame);
+        _ = physicalStateAdmitted && physicalFrame is not null
+            ? OmsiPluginBridgeRelay
+                .ForwardAdmittedRemotePhysicalStateAsync(physicalFrame)
+            : OmsiPluginBridgeRelay
+                .ForwardRemoteTelemetryAsync(frame);
+
+        if (state.Walker is { } walker)
+        {
+            ApplyOpenOmsiWalkerPresence(presence, walker, timestamp);
+        }
+    }
+
+    private static bool HasCompatibleOpenOmsiVisualState(
+        OpenOmsiLanVehicleState state,
+        OpenOmsiSyncTableManifest syncTable) =>
+        state.Lamps.Count == syncTable.LampIds.Length &&
+        state.Switches.Count == syncTable.SwitchIds.Length &&
+        state.Values.Count == syncTable.ValueIds.Length &&
+        state.Doors.Count == syncTable.DoorIds.Length;
+
+    private bool TryBuildOpenOmsiPhysicalFrame(
+        PlayerTelemetryFrame frame,
+        OpenOmsiLanVehicleState state,
+        out PlayerTelemetryFrame? physicalFrame)
+    {
+        physicalFrame = null;
+        var telemetry = frame.Telemetry;
+
+        // OmsiPhysicalRoadAnchorResolver expects openOMSI's wire convention:
+        // X/Y are the ground plane and Z is vertical. The public telemetry
+        // frame above is already converted to OMSI/D3D X/Z ground + Y up, so
+        // reconstruct the wire-space pose only for local Kachel resolution.
+        var worldTelemetry = telemetry with
+        {
+            X = state.X,
+            Y = state.Y,
+            Z = state.Z,
+            HeadingDegrees = state.HeadingDegrees,
+            RearSections = null
+        };
+
+        if (!_openOmsiWorldAnchorResolver.TryResolveOpenOmsiWorldAnchor(
+                worldTelemetry,
+                out var frontAnchor))
+        {
+            return false;
+        }
+
+        var rearSections =
+            new List<VehicleSectionPose>(
+                Math.Min(
+                    state.RearSections.Count,
+                    OpenOmsiLanProtocol.MaxRearSections));
+
+        foreach (var section in state.RearSections.Take(
+                     OpenOmsiLanProtocol.MaxRearSections))
+        {
+            var sectionWorld = worldTelemetry with
+            {
+                X = section.X,
+                Y = section.Y,
+                Z = section.Z,
+                HeadingDegrees = section.HeadingDegrees
+            };
+
+            if (!_openOmsiWorldAnchorResolver
+                    .TryResolveOpenOmsiWorldAnchor(
+                        sectionWorld,
+                        out var sectionAnchor))
+            {
+                // Never shift articulated-section indices by silently dropping
+                // an unresolved part. Hold the previous physical target until
+                // every section can be mapped to a real receiver-side Kachel.
+                return false;
+            }
+
+            rearSections.Add(
+                new VehicleSectionPose(
+                    sectionAnchor.LocalX,
+                    sectionAnchor.LocalY,
+                    sectionAnchor.LocalZ,
+                    sectionAnchor.RotationX,
+                    sectionAnchor.RotationY,
+                    sectionAnchor.RotationZ,
+                    sectionAnchor.RotationW,
+                    sectionAnchor.GridX,
+                    sectionAnchor.GridY,
+                    MapTileIndex: null));
+        }
+
+        physicalFrame = frame with
+        {
+            Telemetry = telemetry with
+            {
+                GridX = frontAnchor.GridX,
+                GridY = frontAnchor.GridY,
+                PhysicalGridX = frontAnchor.GridX,
+                PhysicalGridY = frontAnchor.GridY,
+                TileX = frontAnchor.LocalX,
+                TileY = frontAnchor.LocalZ,
+                LocalX = frontAnchor.LocalX,
+                LocalY = frontAnchor.LocalY,
+                LocalZ = frontAnchor.LocalZ,
+                MapTileIndex = null,
+                HeadingDegrees = frontAnchor.HeadingDegrees,
+                RotationX = frontAnchor.RotationX,
+                RotationY = frontAnchor.RotationY,
+                RotationZ = frontAnchor.RotationZ,
+                RotationW = frontAnchor.RotationW,
+                RearSections = rearSections.ToArray()
+            }
+        };
+
+        return true;
+    }
+
+    private void StartOpenOmsiPlaybackLoop()
+    {
+        if (_openOmsiPlaybackCts is not null)
+        {
+            return;
+        }
+
+        var cts = new CancellationTokenSource();
+        _openOmsiPlaybackCts = cts;
+        _openOmsiPlaybackTask =
+            Task.Run(
+                () => OpenOmsiPlaybackLoopAsync(cts.Token));
+    }
+
+    private async Task OpenOmsiPlaybackLoopAsync(
+        CancellationToken cancellationToken)
+    {
+        using var timer =
+            new PeriodicTimer(
+                TimeSpan.FromMilliseconds(50));
+
+        try
+        {
+            while (await timer.WaitForNextTickAsync(
+                       cancellationToken))
+            {
+                if (_openOmsiV6Session?.IsRunning != true)
+                {
+                    continue;
+                }
+
+                foreach (var pair in
+                         _openOmsiStateInterpolatorByLanId.ToArray())
+                {
+                    if (pair.Value.TryInterpolateCurrent(
+                            out var rendered))
+                    {
+                        ApplyOpenOmsiRenderedState(
+                            rendered);
+                    }
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    private void ApplyOpenOmsiWalkerPresence(
+        PlayerPresence presence,
+        OpenOmsiLanWalker walker,
+        DateTimeOffset timestamp)
+    {
+        var state = new RoleplayCharacterState(
+            presence.PlayerId,
+            timestamp,
+            presence.MapName,
+            presence.MapCompatibilityId,
+            walker.X,
+            walker.Z,
+            walker.Y,
+            walker.HeadingDegrees,
+            walker.SpeedMps,
+            walker.SpeedMps > 0.2f
+                ? RoleplayCharacterActivity.Walking
+                : RoleplayCharacterActivity.Idle,
+            true,
+            null,
+            presence.DisplayName,
+            null,
+            CourseDegrees: walker.CourseDegrees,
+            Seated: walker.Seated,
+            AboardOwner: walker.AboardOwner,
+            AboardLocal: walker.AboardLocal?.ToArray(),
+            Seat: walker.Seat);
+        ApplyRoleplayCharacter(new RoleplayCharacterFrame(presence, state));
+    }
+
+    private void HandleOpenOmsiRemoteVars(OpenOmsiVarsFrame vars) =>
+        _ = HandleOpenOmsiRemoteVarsAsync(vars);
+
+    private async Task HandleOpenOmsiRemoteVarsAsync(OpenOmsiVarsFrame vars)
+    {
+        PlayerPresence? presence;
+        OpenOmsiLanVehicleInfo? info;
+        lock (_openOmsiV6Sync)
+        {
+            _openOmsiPresenceByLanId.TryGetValue(vars.PlayerId, out presence);
+            _openOmsiInfoByLanId.TryGetValue(vars.PlayerId, out info);
+        }
+
+        if (presence is null)
+        {
+            return;
+        }
+
+        var vehiclePath =
+            info?.VehiclePath ??
+            presence.Compatibility?.VehiclePath;
+        if (string.IsNullOrWhiteSpace(vehiclePath))
+        {
+            return;
+        }
+
+        var manifest = await ResolveLocalOpenOmsiVarTableAsync(vehiclePath);
+        if (manifest is null ||
+            manifest.Hash != vars.TableHash)
+        {
+            return;
+        }
+
+        var forwardedVars = vars;
+        if (info is { SyncTableHash: > 0 } &&
+            _openOmsiCompatibleRemoteSyncHash.TryGetValue(
+                vars.PlayerId,
+                out var compatibleHash) &&
+            compatibleHash == info.SyncTableHash &&
+            _openOmsiCompatibleRemoteSyncTable.TryGetValue(
+                vars.PlayerId,
+                out var compatibleSyncTable) &&
+            compatibleSyncTable.Hash == info.SyncTableHash)
+        {
+            var stateOwnedIds = compatibleSyncTable.LampIds
+                .Concat(compatibleSyncTable.SwitchIds)
+                .Concat(compatibleSyncTable.ValueIds)
+                .Concat(compatibleSyncTable.DoorIds)
+                .ToHashSet();
+
+            foreach (var optionalId in new ushort?[]
+                     {
+                         compatibleSyncTable.EngineNId,
+                         compatibleSyncTable.AiEngineId,
+                         compatibleSyncTable.AiLightId,
+                         compatibleSyncTable.AiInteriorId,
+                         compatibleSyncTable.ThrottleId,
+                         compatibleSyncTable.BrakeId
+                     })
+            {
+                if (optionalId is ushort id)
+                {
+                    stateOwnedIds.Add(id);
+                }
+            }
+
+            var nonVisualFloats = vars.Floats
+                .Where(item => !stateOwnedIds.Contains(item.Index))
+                .ToArray();
+            forwardedVars = vars with
+            {
+                Floats = nonVisualFloats
+            };
+        }
+
+        if (forwardedVars.Floats.Count == 0 &&
+            forwardedVars.Strings.Count == 0)
+        {
+            return;
+        }
+
+        await OmsiPluginBridgeRelay.ForwardRemoteVarsAsync(
+            presence.PlayerId,
+            forwardedVars);
+    }
+
+    private async Task<OpenOmsiVarTableManifest?>
+        ResolveLocalOpenOmsiVarTableAsync(string vehiclePath)
+    {
+        if (_openOmsiVarTableByVehicle.TryGetValue(
+                vehiclePath,
+                out var cached))
+        {
+            return cached;
+        }
+
+        var roots =
+            OpenOmsiEnvironmentLocator.ResolveContentSearchRoots();
+        var manifest = await Task.Run(
+            () =>
+            {
+                foreach (var root in roots)
+                {
+                    var candidate =
+                        OpenOmsiVarTableManifestBuilder.TryBuild(
+                            root,
+                            vehiclePath);
+                    if (candidate is not null)
+                    {
+                        return candidate;
+                    }
+                }
+
+                return null;
+            });
+
+        if (manifest is not null)
+        {
+            _openOmsiVarTableByVehicle[vehiclePath] = manifest;
+        }
+
+        return manifest;
+    }
+
+
+    private async Task<OpenOmsiSyncTableManifest?>
+        ResolveLocalOpenOmsiSyncTableAsync(
+            string vehiclePath,
+            OpenOmsiVarTableManifest variables)
+    {
+        var key =
+            $"{vehiclePath}|{variables.Hash:X8}";
+        if (_openOmsiSyncTableByVehicle.TryGetValue(
+                key,
+                out var cached))
+        {
+            return cached;
+        }
+
+        var roots =
+            OpenOmsiEnvironmentLocator.ResolveContentSearchRoots();
+        var manifest = await Task.Run(
+            () =>
+            {
+                foreach (var root in roots)
+                {
+                    var candidate =
+                        OpenOmsiSyncTableManifestBuilder.TryBuild(
+                            root,
+                            vehiclePath,
+                            variables);
+                    if (candidate is not null)
+                    {
+                        return candidate;
+                    }
+                }
+
+                return null;
+            });
+
+        if (manifest is not null)
+        {
+            _openOmsiSyncTableByVehicle[key] = manifest;
+        }
+
+        return manifest;
+    }
+
+    private async Task EnsureLocalOpenOmsiSamplingConfiguredAsync(
+        OpenOmsiVarTableManifest variables,
+        OpenOmsiSyncTableManifest? syncTable,
+        CancellationToken cancellationToken)
+    {
+        var visualIds = syncTable is null
+            ? Enumerable.Empty<ushort>()
+            : syncTable.LampIds
+                .Concat(syncTable.SwitchIds)
+                .Concat(syncTable.ValueIds)
+                .Concat(syncTable.DoorIds)
+                .Concat(
+                    syncTable.EngineNId is ushort engineId
+                        ? new[] { engineId }
+                        : Array.Empty<ushort>());
+
+        var sampleIds = visualIds
+            .Concat(variables.FloatIds)
+            .Distinct()
+            .Take(512)
+            .ToArray();
+        var stringIds = variables.StringIds
+            .Distinct()
+            .Take(64)
+            .ToArray();
+
+        var key =
+            $"{variables.Hash:X8}|" +
+            string.Join(',', sampleIds) +
+            "|" +
+            string.Join(',', stringIds);
+
+        if (string.Equals(
+                _openOmsiConfiguredLocalSampleKey,
+                key,
+                StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        await OmsiPluginBridgeRelay.ConfigureLocalVarsAsync(
+            variables.Hash,
+            sampleIds,
+            stringIds,
+            cancellationToken);
+        _openOmsiConfiguredLocalVarHash = variables.Hash;
+        _openOmsiConfiguredLocalSampleKey = key;
+        _openOmsiLastPublishedLocalVarsAt = null;
+        LocalOmsiScriptVarsSnapshotStore.Clear();
+    }
+
+    private static bool IsSyncTableSnapshotReady(
+        OpenOmsiSyncTableManifest? syncTable,
+        LocalOmsiScriptVarsSnapshot? snapshot)
+    {
+        if (syncTable is null ||
+            snapshot is null ||
+            snapshot.VarTableHash != syncTable.VarTableHash ||
+            snapshot.VariableIndices.Length !=
+                snapshot.VariableValues.Length)
+        {
+            return false;
+        }
+
+        var age = DateTimeOffset.UtcNow - snapshot.CapturedAtUtc;
+        if (age < TimeSpan.FromSeconds(-1) ||
+            age > TimeSpan.FromSeconds(2))
+        {
+            return false;
+        }
+
+        var ids = snapshot.VariableIndices.ToHashSet();
+        return syncTable.LampIds.All(ids.Contains) &&
+               syncTable.SwitchIds.All(ids.Contains) &&
+               syncTable.ValueIds.All(ids.Contains) &&
+               syncTable.DoorIds.All(ids.Contains);
+    }
+
+    private void HandleOpenOmsiChat(
+        ushort lanId,
+        string displayName,
+        string text)
+    {
+        PlayerPresence? presence = null;
+        lock (_openOmsiV6Sync)
+        {
+            _openOmsiPresenceByLanId.TryGetValue(lanId, out presence);
+        }
+
+        string playerId;
+        string name;
+        if (_openOmsiV6Session?.LocalPlayerId == lanId &&
+            _joinRequest is not null)
+        {
+            playerId = _joinRequest.PlayerId;
+            name = _joinRequest.DisplayName;
+        }
+        else
+        {
+            playerId =
+                presence?.PlayerId ??
+                $"openomsi:{lanId}";
+            name =
+                presence?.DisplayName ??
+                (string.IsNullOrWhiteSpace(displayName)
+                    ? $"Player {lanId}"
+                    : displayName);
+        }
+
+        ChatMessageReceived?.Invoke(
+            new ChatMessage(
+                playerId,
+                name,
+                text,
+                DateTimeOffset.UtcNow));
+    }
+
+    private void HandleOpenOmsiCommand(
+        ushort senderLanId,
+        string command)
+    {
+        PlayerPresence? sender = null;
+        lock (_openOmsiV6Sync)
+        {
+            _openOmsiPresenceByLanId.TryGetValue(
+                senderLanId,
+                out sender);
+        }
+
+        var playerId =
+            sender?.PlayerId ??
+            $"openomsi:{senderLanId}";
+        SessionCommandReceived?.Invoke(
+            playerId,
+            command);
+    }
+
+    public async Task<bool> SendSessionCommandAsync(
+        string targetPlayerId,
+        string command,
+        CancellationToken cancellationToken = default)
+    {
+        var session = _openOmsiV6Session;
+        if (session?.IsRunning != true ||
+            string.IsNullOrWhiteSpace(targetPlayerId))
+        {
+            return false;
+        }
+
+        ushort targetLanId = 0;
+        lock (_openOmsiV6Sync)
+        {
+            if (_openOmsiPresenceByPlayerId.TryGetValue(
+                    targetPlayerId,
+                    out var presence) &&
+                presence.OpenOmsiLanId is ushort lanId)
+            {
+                targetLanId = lanId;
+            }
+        }
+
+        if (targetLanId == 0 ||
+            targetLanId == session.LocalPlayerId)
+        {
+            return false;
+        }
+
+        await session.SendCommandAsync(
+            targetLanId,
+            command,
+            cancellationToken);
+        return true;
+    }
+
+    private void HandleOpenOmsiRemoteLeft(ushort lanId)
+    {
+        PlayerPresence? presence;
+        _openOmsiStateInterpolatorByLanId.TryRemove(lanId, out _);
+        _openOmsiRemoteSyncProbeKey.TryRemove(lanId, out _);
+        _openOmsiCompatibleRemoteSyncHash.TryRemove(lanId, out _);
+        _openOmsiCompatibleRemoteSyncTable.TryRemove(lanId, out _);
+        lock (_openOmsiV6Sync)
+        {
+            _openOmsiInfoByLanId.Remove(lanId);
+            if (!_openOmsiPresenceByLanId.Remove(lanId, out presence))
+            {
+                presence = null;
+            }
+        }
+
+        if (presence is null)
+        {
+            return;
+        }
+
+        _ = _physicalVehicles.DespawnAsync(presence.PlayerId);
+        RemoveRoleplayCharacter(presence.PlayerId);
+    }
+
+    private async Task PublishOpenOmsiTrafficSnapshotAsync(
+        TrafficSnapshot snapshot,
+        CancellationToken cancellationToken)
+    {
+        var session = _openOmsiV6Session;
+        if (session?.IsHost != true ||
+            !session.IsRunning)
+        {
+            return;
+        }
+
+        var currentIds = new HashSet<uint>();
+        var cars = new List<OpenOmsiWorldCarState>(
+            Math.Min(snapshot.Vehicles.Count, 48));
+
+        foreach (var vehicle in snapshot.Vehicles.Take(48))
+        {
+            var path =
+                OpenOmsiLanProtocol.NormalizeVehiclePath(
+                    vehicle.VehiclePath);
+            if (path is null)
+            {
+                continue;
+            }
+
+            var id = ResolveOpenOmsiWorldTrafficId(
+                vehicle.TrafficId);
+            currentIds.Add(id);
+
+            var description =
+                new OpenOmsiWorldDescription.Car(
+                    id,
+                    path,
+                    null,
+                    string.Empty,
+                    string.Empty);
+            var descriptionChanged = false;
+            lock (_openOmsiV6Sync)
+            {
+                var key = (IsPerson: false, id);
+                if (!_openOmsiWorldDescriptions.TryGetValue(
+                        key,
+                        out var previous) ||
+                    !Equals(previous, description))
+                {
+                    _openOmsiWorldDescriptions[key] =
+                        description;
+                    descriptionChanged = true;
+                }
+            }
+
+            if (descriptionChanged)
+            {
+                await session.BroadcastWorldDescriptionAsync(
+                    description,
+                    cancellationToken);
+            }
+
+            var heading =
+                OpenOmsiQuaternionHeading(
+                    vehicle.RotationX,
+                    vehicle.RotationY,
+                    vehicle.RotationZ,
+                    vehicle.RotationW);
+            if (!double.IsFinite(heading))
+            {
+                heading = 0d;
+            }
+
+            var lights =
+                (VehicleLightFlags)vehicle.LightFlags;
+            var externalLights =
+                (lights &
+                 (VehicleLightFlags.Position |
+                  VehicleLightFlags.LowBeam |
+                  VehicleLightFlags.HighBeam |
+                  VehicleLightFlags.Fog)) != 0;
+            var braking =
+                (lights & VehicleLightFlags.Brake) != 0;
+
+            cars.Add(
+                new OpenOmsiWorldCarState(
+                    id,
+                    vehicle.X,
+                    vehicle.Z,
+                    vehicle.Y,
+                    (float)heading,
+                    0f,
+                    0f,
+                    (float)Math.Clamp(
+                        vehicle.SpeedKph / 3.6d,
+                        -20d,
+                        70d),
+                    0f,
+                    (byte)Math.Clamp(
+                        vehicle.TurnSignal,
+                        0,
+                        3),
+                    braking,
+                    externalLights,
+                    0));
+        }
+
+        var gone = new List<(bool IsPerson, uint Id)>();
+        lock (_openOmsiV6Sync)
+        {
+            foreach (var stale in
+                     _openOmsiHostTrafficActiveIds
+                         .Where(id => !currentIds.Contains(id))
+                         .ToArray())
+            {
+                gone.Add((false, stale));
+                _openOmsiHostTrafficActiveIds.Remove(stale);
+                _openOmsiWorldDescriptions.Remove(
+                    (false, stale));
+            }
+
+            foreach (var id in currentIds)
+            {
+                _openOmsiHostTrafficActiveIds.Add(id);
+            }
+        }
+
+        await session.PublishWorldAsync(
+            new OpenOmsiWorldFrame(
+                unchecked(++_openOmsiWorldSequence),
+                unchecked((uint)Environment.TickCount64),
+                cars,
+                Array.Empty<OpenOmsiWorldPersonState>(),
+                Array.Empty<OpenOmsiWorldLightState>(),
+                gone),
+            cancellationToken);
+    }
+
+    private uint ResolveOpenOmsiWorldTrafficId(
+        string trafficId)
+    {
+        var key = string.IsNullOrWhiteSpace(trafficId)
+            ? "traffic"
+            : trafficId.Trim();
+
+        lock (_openOmsiV6Sync)
+        {
+            if (_openOmsiTrafficWireIdByKey.TryGetValue(
+                    key,
+                    out var existing))
+            {
+                return existing;
+            }
+
+            uint hash = 2166136261u;
+            foreach (var value in
+                     System.Text.Encoding.UTF8.GetBytes(
+                         key.ToLowerInvariant()))
+            {
+                hash =
+                    unchecked((hash ^ value) * 16777619u);
+            }
+
+            var id =
+                hash & OpenOmsiWorldCodec.MaxId;
+            if (id == 0)
+            {
+                id = 1;
+            }
+
+            var used =
+                _openOmsiTrafficWireIdByKey.Values
+                    .ToHashSet();
+            while (used.Contains(id))
+            {
+                id =
+                    id >= OpenOmsiWorldCodec.MaxId
+                        ? 1u
+                        : id + 1u;
+            }
+
+            _openOmsiTrafficWireIdByKey[key] = id;
+            return id;
+        }
+    }
+
+    private void EmitOpenOmsiWorldTrafficSnapshot()
+    {
+        if (_openOmsiV6Session?.IsHost != false)
+        {
+            return;
+        }
+
+        List<(OpenOmsiWorldCarState Car,
+              OpenOmsiWorldDescription.Car Description)> resolved;
+        lock (_openOmsiV6Sync)
+        {
+            resolved = _openOmsiWorldCars
+                .Select(pair =>
+                {
+                    _openOmsiWorldDescriptions.TryGetValue(
+                        (false, pair.Key),
+                        out var description);
+                    return (
+                        pair.Value.State,
+                        description as
+                            OpenOmsiWorldDescription.Car);
+                })
+                .Where(item => item.Item2 is not null)
+                .Select(item => (
+                    item.State,
+                    item.Item2!))
+                .Take(48)
+                .ToList();
+        }
+
+        if (resolved.Count == 0)
+        {
+            TrafficSnapshotReceived?.Invoke(
+                new TrafficSnapshot(
+                    TrafficAuthorityPlayerId ??
+                        "openomsi-host",
+                    Interlocked.Increment(
+                        ref _openOmsiTrafficReceiveSequence),
+                    DateTimeOffset.UtcNow,
+                    _joinRequest?.MapName,
+                    _joinRequest?.MapCompatibilityId,
+                    Array.Empty<TrafficVehicleState>()));
+            return;
+        }
+
+        var vehicles =
+            new List<TrafficVehicleState>(
+                resolved.Count);
+        foreach (var (car, description) in resolved)
+        {
+            var probe = new VehicleTelemetry(
+                PlayerId: $"world:{car.Id}",
+                Timestamp: DateTimeOffset.UtcNow,
+                MapName: _joinRequest?.MapName,
+                VehicleName: null,
+                Line: description.Line,
+                Route: null,
+                X: car.X,
+                Y: car.Y,
+                Z: car.Z,
+                HeadingDegrees: car.HeadingDegrees,
+                SpeedKph:
+                    car.SpeedMetersPerSecond * 3.6d,
+                IsInGame: true,
+                MapCompatibilityId:
+                    _joinRequest?.MapCompatibilityId);
+
+            if (!_openOmsiWorldAnchorResolver
+                    .TryResolveOpenOmsiWorldAnchor(
+                        probe,
+                        out var anchor))
+            {
+                continue;
+            }
+
+            var lightFlags =
+                VehicleLightFlags.None;
+            if (car.Lights)
+            {
+                lightFlags |=
+                    VehicleLightFlags.Position |
+                    VehicleLightFlags.LowBeam;
+            }
+            if (car.Brake)
+            {
+                lightFlags |=
+                    VehicleLightFlags.Brake;
+            }
+
+            vehicles.Add(
+                new TrafficVehicleState(
+                    $"world:{car.Id}",
+                    description.File,
+                    null,
+                    car.X,
+                    car.Z,
+                    car.Y,
+                    anchor.LocalX,
+                    anchor.LocalY,
+                    anchor.LocalZ,
+                    anchor.RotationX,
+                    anchor.RotationY,
+                    anchor.RotationZ,
+                    anchor.RotationW,
+                    car.SpeedMetersPerSecond *
+                        3.6d,
+                    (int)lightFlags,
+                    car.TurnSignal));
+        }
+
+        TrafficSnapshotReceived?.Invoke(
+            new TrafficSnapshot(
+                TrafficAuthorityPlayerId ??
+                    "openomsi-host",
+                Interlocked.Increment(
+                    ref _openOmsiTrafficReceiveSequence),
+                DateTimeOffset.UtcNow,
+                _joinRequest?.MapName,
+                _joinRequest?.MapCompatibilityId,
+                vehicles));
+    }
+
+    private async Task PublishOpenOmsiTelemetryAsync(
+        VehicleTelemetry telemetry,
+        CancellationToken cancellationToken)
+    {
+        var session = _openOmsiV6Session;
+        if (session?.IsRunning != true || session.LocalPlayerId == 0 || _joinRequest is null)
+        {
+            return;
+        }
+
+        var localPresence = new PlayerPresence(
+            _joinRequest.PlayerId,
+            _joinRequest.DisplayName,
+            _joinRequest.RoomId,
+            telemetry.MapName,
+            DateTimeOffset.UtcNow,
+            telemetry.MapCompatibilityId,
+            _joinRequest.Compatibility);
+
+        var frame = new PlayerTelemetryFrame(localPresence, telemetry);
+        OpenOmsiVarTableManifest? varTable = null;
+        OpenOmsiSyncTableManifest? syncTable = null;
+        LocalOmsiScriptVarsSnapshot? scriptSnapshot =
+            LocalOmsiScriptVarsSnapshotStore.Latest;
+
+        if (!string.IsNullOrWhiteSpace(telemetry.VehiclePath))
+        {
+            varTable = await ResolveLocalOpenOmsiVarTableAsync(
+                telemetry.VehiclePath);
+            if (varTable is not null)
+            {
+                syncTable = await ResolveLocalOpenOmsiSyncTableAsync(
+                    telemetry.VehiclePath,
+                    varTable);
+                await EnsureLocalOpenOmsiSamplingConfiguredAsync(
+                    varTable,
+                    syncTable,
+                    cancellationToken);
+                scriptSnapshot =
+                    LocalOmsiScriptVarsSnapshotStore.Latest;
+            }
+        }
+
+        var visualSnapshot =
+            BuildOpenOmsiVisualSnapshot(
+                syncTable,
+                scriptSnapshot);
+
+        var baseState = BuildOpenOmsiLocalState(
+            session.LocalPlayerId,
+            unchecked(++_openOmsiLocalSequence),
+            frame,
+            visualSnapshot,
+            (uint)Environment.TickCount64);
+
+        var walker = BuildOpenOmsiLocalWalker(baseState, telemetry);
+        var state = baseState with { Walker = walker };
+
+        var syncTableHash =
+            visualSnapshot is not null && syncTable is not null
+                ? syncTable.Hash
+                : 0u;
+        var info = BuildOpenOmsiLocalInfo(
+            session.LocalPlayerId,
+            frame,
+            syncTableHash);
+        await session.PublishInfoAsync(info, cancellationToken);
+        await session.PublishStateAsync(state, cancellationToken);
+
+        await PublishOpenOmsiLocalVarsAsync(
+            session,
+            telemetry,
+            cancellationToken);
+    }
+
+    private async Task PublishOpenOmsiLocalVarsAsync(
+        OpenOmsiLanPeerSession session,
+        VehicleTelemetry telemetry,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(telemetry.VehiclePath))
+        {
+            return;
+        }
+
+        var manifest = await ResolveLocalOpenOmsiVarTableAsync(
+            telemetry.VehiclePath);
+        if (manifest is null ||
+            manifest.Hash == 0 ||
+            (manifest.FloatIds.Length == 0 &&
+             manifest.StringIds.Length == 0))
+        {
+            return;
+        }
+
+        if (_openOmsiConfiguredLocalVarHash != manifest.Hash)
+        {
+            await OmsiPluginBridgeRelay.ConfigureLocalVarsAsync(
+                manifest.Hash,
+                manifest.FloatIds,
+                manifest.StringIds,
+                cancellationToken);
+            _openOmsiConfiguredLocalVarHash = manifest.Hash;
+            _openOmsiLastPublishedLocalVarsAt = null;
+        }
+
+        var snapshot =
+            LocalOmsiScriptVarsSnapshotStore.Latest;
+        if (snapshot is null ||
+            snapshot.VarTableHash != manifest.Hash ||
+            snapshot.VariableIndices.Length !=
+                snapshot.VariableValues.Length ||
+            snapshot.StringVariableIndices.Length !=
+                snapshot.StringVariableValues.Length ||
+            DateTimeOffset.UtcNow - snapshot.CapturedAtUtc >
+                TimeSpan.FromSeconds(2) ||
+            _openOmsiLastPublishedLocalVarsAt is DateTimeOffset last &&
+            snapshot.CapturedAtUtc <= last)
+        {
+            return;
+        }
+
+        var allowedFloatIds = manifest.FloatIds.ToHashSet();
+        var floats = snapshot.VariableIndices
+            .Zip(
+                snapshot.VariableValues,
+                static (id, value) => (id, value))
+            .Where(item => allowedFloatIds.Contains(item.id))
+            .ToArray();
+
+        var allowedStringIds = manifest.StringIds.ToHashSet();
+        var strings = snapshot.StringVariableIndices
+            .Zip(
+                snapshot.StringVariableValues,
+                static (id, value) => (id, value))
+            .Where(item => allowedStringIds.Contains(item.id))
+            .ToArray();
+
+        await session.PublishVarsAsync(
+            new OpenOmsiVarsFrame(
+                session.LocalPlayerId,
+                snapshot.VarTableHash,
+                floats,
+                strings),
+            cancellationToken);
+
+        _openOmsiLastPublishedLocalVarsAt =
+            snapshot.CapturedAtUtc;
+    }
+
+
+    private static OpenOmsiLanVehicleInfo BuildOpenOmsiLocalInfo(
+        ushort id,
+        PlayerTelemetryFrame frame,
+        uint syncTableHash)
+    {
+        var telemetry = frame.Telemetry;
+        var vehiclePath = OpenOmsiLanProtocol.NormalizeVehiclePath(
+            telemetry.VehiclePath ??
+            frame.Player.Compatibility?.VehiclePath);
+
+        return new OpenOmsiLanVehicleInfo(
+            id,
+            frame.Player.DisplayName,
+            vehiclePath,
+            string.Empty,
+            telemetry.Line ?? string.Empty,
+            telemetry.DestinationName ?? string.Empty,
+            12d,
+            2.55d,
+            0d,
+            syncTableHash,
+            telemetry.Route ?? string.Empty,
+            [],
+            null,
+            []);
+    }
+
+    private static OpenOmsiLanVehicleState BuildOpenOmsiLocalState(
+        ushort id,
+        ushort sequence,
+        PlayerTelemetryFrame frame,
+        OpenOmsiLocalVisualSnapshot? visual,
+        uint sentMilliseconds)
+    {
+        var telemetry = frame.Telemetry;
+
+        var flags =
+            OpenOmsiLanProtocol.FlagVehicle |
+            OpenOmsiLanProtocol.FlagEngine |
+            OpenOmsiLanProtocol.FlagElectrics;
+        if (telemetry.HornActive) flags |= OpenOmsiLanProtocol.FlagHorn;
+        if (telemetry.ReverseGear) flags |= OpenOmsiLanProtocol.FlagReverse;
+        if (telemetry.WipersActive) flags |= OpenOmsiLanProtocol.FlagWipers;
+        if (telemetry.ParkingBrakeActive) flags |= OpenOmsiLanProtocol.FlagStopBrake;
+        if ((telemetry.Lights & VehicleLightFlags.Brake) != 0 ||
+            telemetry.BrakePercent is > 1d)
+        {
+            flags |= OpenOmsiLanProtocol.FlagBrake;
+        }
+        if ((telemetry.Lights & VehicleLightFlags.Fog) != 0)
+        {
+            flags |= OpenOmsiLanProtocol.FlagFog;
+        }
+
+        var head = (byte)(
+            (telemetry.Lights & VehicleLightFlags.HighBeam) != 0 ? 3 :
+            (telemetry.Lights & VehicleLightFlags.LowBeam) != 0 ? 2 :
+            (telemetry.Lights & VehicleLightFlags.Position) != 0 ? 1 : 0);
+        var interior = (byte)(
+            (telemetry.Lights & VehicleLightFlags.Interior) != 0 ? 3 : 0);
+
+        IReadOnlyList<float> doors;
+        if (visual is not null)
+        {
+            doors = visual.Doors;
+        }
+        else
+        {
+            var fallbackDoors = new float[5];
+            fallbackDoors[0] =
+                (telemetry.Doors & VehicleDoorFlags.Front) != 0 ? 1f : 0f;
+            fallbackDoors[1] =
+                (telemetry.Doors & VehicleDoorFlags.Middle) != 0 ? 1f : 0f;
+            fallbackDoors[2] =
+                (telemetry.Doors & VehicleDoorFlags.Rear) != 0 ? 1f : 0f;
+            fallbackDoors[3] =
+                (telemetry.Doors & VehicleDoorFlags.Extra1) != 0 ? 1f : 0f;
+            fallbackDoors[4] =
+                (telemetry.Doors & VehicleDoorFlags.Extra2) != 0 ? 1f : 0f;
+            doors = fallbackDoors;
+        }
+
+        var useNativeAxes =
+            telemetry.LocalX is double &&
+            telemetry.LocalY is double &&
+            telemetry.LocalZ is double;
+        var rearSections = useNativeAxes
+            ? BuildOpenOmsiLocalRearSections(telemetry)
+            : Array.Empty<OpenOmsiLanPartPose>();
+
+        return new OpenOmsiLanVehicleState(
+            id,
+            sequence,
+            flags,
+            telemetry.X,
+            useNativeAxes ? telemetry.Z : telemetry.Y,
+            useNativeAxes ? telemetry.Y : telemetry.Z,
+            (float)telemetry.HeadingDegrees,
+            0f,
+            0f,
+            (float)telemetry.SpeedKph,
+            (float)(telemetry.SteeringDegrees ?? 0d),
+            head,
+            interior,
+            (byte)telemetry.TurnSignal,
+            visual?.EngineRpm ?? 0f,
+            (float)Math.Clamp((telemetry.ThrottlePercent ?? 0d) / 100d, 0d, 1d),
+            (float)Math.Clamp((telemetry.BrakePercent ?? 0d) / 100d, 0d, 1d),
+            0,
+            doors,
+            [],
+            rearSections,
+            visual?.Lamps ?? [],
+            visual?.Switches ?? [],
+            visual?.Values ?? [],
+            null,
+            sentMilliseconds);
+    }
+
+    private sealed record OpenOmsiLocalVisualSnapshot(
+        float[] Lamps,
+        float[] Switches,
+        float[] Values,
+        float[] Doors,
+        float EngineRpm);
+
+    private static OpenOmsiLocalVisualSnapshot?
+        BuildOpenOmsiVisualSnapshot(
+            OpenOmsiSyncTableManifest? syncTable,
+            LocalOmsiScriptVarsSnapshot? snapshot)
+    {
+        if (!IsSyncTableSnapshotReady(syncTable, snapshot) ||
+            syncTable is null ||
+            snapshot is null)
+        {
+            return null;
+        }
+
+        var valuesById = snapshot.VariableIndices
+            .Zip(
+                snapshot.VariableValues,
+                static (id, value) => (id, value))
+            .ToDictionary(
+                item => item.id,
+                item => item.value);
+
+        float[] Resolve(IReadOnlyList<ushort> ids)
+        {
+            var values = new float[ids.Count];
+            for (var i = 0; i < ids.Count; i++)
+            {
+                if (!valuesById.TryGetValue(ids[i], out values[i]) ||
+                    !float.IsFinite(values[i]))
+                {
+                    return [];
+                }
+            }
+
+            return values;
+        }
+
+        var lamps = Resolve(syncTable.LampIds);
+        var switches = Resolve(syncTable.SwitchIds);
+        var values = Resolve(syncTable.ValueIds);
+        var doors = Resolve(syncTable.DoorIds);
+        var engineRpm = 0f;
+        if (syncTable.EngineNId is ushort engineId &&
+            (!valuesById.TryGetValue(engineId, out engineRpm) ||
+             !float.IsFinite(engineRpm)))
+        {
+            return null;
+        }
+
+        if ((syncTable.LampIds.Length > 0 && lamps.Length == 0) ||
+            (syncTable.SwitchIds.Length > 0 && switches.Length == 0) ||
+            (syncTable.ValueIds.Length > 0 && values.Length == 0) ||
+            (syncTable.DoorIds.Length > 0 && doors.Length == 0))
+        {
+            return null;
+        }
+
+        return new OpenOmsiLocalVisualSnapshot(
+            lamps,
+            switches,
+            values,
+            doors,
+            engineRpm);
+    }
+
+    private static IReadOnlyList<OpenOmsiLanPartPose>
+        BuildOpenOmsiLocalRearSections(VehicleTelemetry telemetry)
+    {
+        if (telemetry.RearSections is not { Length: > 0 } sections ||
+            telemetry.LocalX is not double frontLocalX ||
+            telemetry.LocalY is not double frontLocalY ||
+            telemetry.LocalZ is not double frontLocalZ)
+        {
+            return [];
+        }
+
+        var frontGridX = telemetry.PhysicalGridX ?? telemetry.GridX;
+        var frontGridY = telemetry.PhysicalGridY ?? telemetry.GridY;
+        if (frontGridX is not int gx || frontGridY is not int gy)
+        {
+            return [];
+        }
+
+        var tileSize = InferOpenOmsiTileSize(
+            telemetry,
+            gx,
+            gy,
+            frontLocalX,
+            frontLocalZ);
+
+        var result = new List<OpenOmsiLanPartPose>(
+            Math.Min(
+                sections.Length,
+                OpenOmsiLanProtocol.MaxRearSections));
+
+        foreach (var section in sections.Take(OpenOmsiLanProtocol.MaxRearSections))
+        {
+            var gridDeltaX = section.GridX - gx;
+            var gridDeltaY = section.GridY - gy;
+            if ((gridDeltaX != 0 || gridDeltaY != 0) &&
+                tileSize is null)
+            {
+                continue;
+            }
+
+            var dx =
+                section.LocalX - frontLocalX +
+                gridDeltaX * (tileSize ?? 0d);
+            var dy =
+                section.LocalZ - frontLocalZ +
+                gridDeltaY * (tileSize ?? 0d);
+            var dz = section.LocalY - frontLocalY;
+            var heading = OpenOmsiQuaternionHeading(
+                section.RotationX,
+                section.RotationY,
+                section.RotationZ,
+                section.RotationW);
+
+            if (!double.IsFinite(dx) ||
+                !double.IsFinite(dy) ||
+                !double.IsFinite(dz) ||
+                !double.IsFinite(heading))
+            {
+                continue;
+            }
+
+            result.Add(
+                new OpenOmsiLanPartPose(
+                    telemetry.X + dx,
+                    telemetry.Z + dy,
+                    telemetry.Y + dz,
+                    (float)heading));
+        }
+
+        return result;
+    }
+
+    private static double? InferOpenOmsiTileSize(
+        VehicleTelemetry telemetry,
+        int gridX,
+        int gridY,
+        double localX,
+        double localZ)
+    {
+        var candidates = new List<double>(2);
+        if (gridX != 0)
+        {
+            var value = Math.Abs((telemetry.X - localX) / gridX);
+            if (double.IsFinite(value) && value is >= 250d and <= 500d)
+            {
+                candidates.Add(value);
+            }
+        }
+
+        if (gridY != 0)
+        {
+            var value = Math.Abs((telemetry.Z - localZ) / gridY);
+            if (double.IsFinite(value) && value is >= 250d and <= 500d)
+            {
+                candidates.Add(value);
+            }
+        }
+
+        return candidates.Count switch
+        {
+            0 => null,
+            1 => candidates[0],
+            _ => Math.Abs(candidates[0] - candidates[1]) <= 2d
+                ? (candidates[0] + candidates[1]) * 0.5d
+                : null
+        };
+    }
+
+    private static double OpenOmsiQuaternionHeading(
+        double x,
+        double y,
+        double z,
+        double w)
+    {
+        var lengthSquared = x * x + y * y + z * z + w * w;
+        if (!double.IsFinite(lengthSquared) || lengthSquared < 0.00000001d)
+        {
+            return double.NaN;
+        }
+
+        var inverseLength = 1d / Math.Sqrt(lengthSquared);
+        x *= inverseLength;
+        y *= inverseLength;
+        z *= inverseLength;
+        w *= inverseLength;
+
+        var sinYaw = 2d * (w * y + x * z);
+        var cosYaw = 1d - 2d * (y * y + z * z);
+        var degrees = Math.Atan2(sinYaw, cosYaw) * (180d / Math.PI);
+        return (degrees + 360d) % 360d;
+    }
+
+    private OpenOmsiLanWalker? BuildOpenOmsiLocalWalker(
+        OpenOmsiLanVehicleState vehicle,
+        VehicleTelemetry telemetry)
+    {
+        var rp = _openOmsiLocalRoleplayState;
+        if (rp?.IsActive != true)
+        {
+            return null;
+        }
+
+        var worldX = rp.LocalX;
+        var worldY = rp.LocalZ;
+        var worldZ = rp.LocalY;
+
+        if (telemetry.LocalX is double busLocalX &&
+            telemetry.LocalY is double busLocalY &&
+            telemetry.LocalZ is double busLocalZ)
+        {
+            worldX = vehicle.X + (rp.LocalX - busLocalX);
+            worldY = vehicle.Y + (rp.LocalZ - busLocalZ);
+            worldZ = vehicle.Z + (rp.LocalY - busLocalY);
+        }
+
+        return new OpenOmsiLanWalker(
+            worldX,
+            worldY,
+            worldZ,
+            (float)rp.HeadingDegrees,
+            (float)rp.SpeedMps,
+            (float)(rp.CourseDegrees ?? rp.HeadingDegrees),
+            rp.Seated,
+            rp.AboardOwner,
+            rp.AboardLocal,
+            rp.Seat);
+    }
+
+    private void SetOpenOmsiLocalRoleplayState(RoleplayCharacterState? state) =>
+        _openOmsiLocalRoleplayState = state;
+
+    private async Task RepublishOpenOmsiV6PresenceAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var session = _openOmsiV6Session;
+        var connection = _connection;
+        if (session?.IsRunning != true ||
+            connection?.State != HubConnectionState.Connected)
+        {
+            return;
+        }
+
+        if (session.IsHost)
+        {
+            await PublishOpenOmsiTransportPresenceAsync(
+                session,
+                ResolveLanAdvertiseAddress(),
+                cancellationToken);
+        }
+        else
+        {
+            await connection.InvokeAsync(
+                "UpdateOpenOmsiLanId",
+                (ushort?)session.LocalPlayerId,
+                cancellationToken);
+        }
+    }
+
+    private async Task HandleOpenOmsiAuthorityChangedAsync()
+    {
+        if (_joinRequest is null)
+        {
+            return;
+        }
+
+        if (IsTrafficAuthority)
+        {
+            if (_openOmsiV6Session?.IsHost == true)
+            {
+                await RepublishOpenOmsiV6PresenceAsync();
+                return;
+            }
+
+            await StopOpenOmsiV6Async();
+            var session = new OpenOmsiLanPeerSession();
+            AttachOpenOmsiV6Handlers(session);
+            _openOmsiV6Session = session;
+            StartOpenOmsiPlaybackLoop();
+
+            var world = new OpenOmsiLanWorld(
+                NormalizeOpenOmsiMapPath(_joinRequest.MapName),
+                DateOnly.FromDateTime(DateTime.Now).ToString("yyyy-MM-dd"),
+                0d,
+                string.Empty,
+                string.Empty);
+            await session.StartHostAsync(world);
+            await StartOpenOmsiWebSocketGatewayAsync(
+                session,
+                CancellationToken.None);
+            await PublishOpenOmsiTransportPresenceAsync(
+                session,
+                ResolveLanAdvertiseAddress(),
+                CancellationToken.None);
+            return;
+        }
+
+        // Authority changed: a client must leave the previous v6 host as well,
+        // otherwise it would keep receiving motion from a room authority that
+        // no longer owns the shared session.
+        if (_openOmsiV6Session?.IsRunning == true)
+        {
+            await StopOpenOmsiV6Async();
+        }
+
+        PlayerPresence? authority = null;
+        lock (_openOmsiV6Sync)
+        {
+            if (!string.IsNullOrWhiteSpace(TrafficAuthorityPlayerId))
+            {
+                _openOmsiPresenceByPlayerId.TryGetValue(
+                    TrafficAuthorityPlayerId,
+                    out authority);
+            }
+        }
+
+        if (authority is not null)
+        {
+            await HandleOpenOmsiPresenceAsync(authority);
+        }
+    }
+
+
+    private async Task StartOpenOmsiWebSocketGatewayAsync(
+        OpenOmsiLanPeerSession session,
+        CancellationToken cancellationToken)
+    {
+        if (session.Port is not int udpPort)
+        {
+            return;
+        }
+
+        if (_openOmsiWebSocketGateway is not null)
+        {
+            await _openOmsiWebSocketGateway.DisposeAsync();
+            _openOmsiWebSocketGateway = null;
+        }
+
+        var webPort = Math.Min(65535, udpPort + 10);
+        _openOmsiWebSocketGateway =
+            await OpenOmsiWebSocketGateway.StartAsync(
+                webPort,
+                new IPEndPoint(IPAddress.Loopback, udpPort),
+                cancellationToken);
+
+        _openOmsiPublicWebSocketUrl =
+            $"http://127.0.0.1:{_openOmsiWebSocketGateway.Port}";
+
+        if (_openOmsiQuickTunnel is not null)
+        {
+            await _openOmsiQuickTunnel.DisposeAsync();
+            _openOmsiQuickTunnel = null;
+        }
+
+        _openOmsiQuickTunnel = await OpenOmsiQuickTunnel.StartAsync(
+            _openOmsiWebSocketGateway.Port,
+            cancellationToken);
+        if (_openOmsiQuickTunnel is not null)
+        {
+            var publicUrl = await _openOmsiQuickTunnel.WaitForUrlAsync(
+                TimeSpan.FromSeconds(15),
+                cancellationToken);
+            if (!string.IsNullOrWhiteSpace(publicUrl))
+            {
+                _openOmsiPublicWebSocketUrl = publicUrl;
+            }
+        }
+    }
+
+    internal void SetOpenOmsiPublicWebSocketUrl(string? url)
+    {
+        _openOmsiPublicWebSocketUrl =
+            string.IsNullOrWhiteSpace(url)
+                ? null
+                : url.Trim();
+    }
+
+    private async Task StopOpenOmsiV6Async()
+    {
+        var playbackCts = _openOmsiPlaybackCts;
+        var playbackTask = _openOmsiPlaybackTask;
+        _openOmsiPlaybackCts = null;
+        _openOmsiPlaybackTask = null;
+        playbackCts?.Cancel();
+
+        if (playbackTask is not null)
+        {
+            try
+            {
+                await playbackTask;
+            }
+            catch (OperationCanceledException)
+            {
+            }
+        }
+        playbackCts?.Dispose();
+
+        var session = _openOmsiV6Session;
+        var webSocketClient = _openOmsiWebSocketClient;
+        var webSocketGateway = _openOmsiWebSocketGateway;
+        var quickTunnel = _openOmsiQuickTunnel;
+        _openOmsiV6Session = null;
+        _openOmsiWebSocketClient = null;
+        _openOmsiWebSocketGateway = null;
+        _openOmsiQuickTunnel = null;
+        _openOmsiPublicWebSocketUrl = null;
+        _openOmsiCanonicalSessionCode = null;
+        _openOmsiLocalRoleplayState = null;
+        _openOmsiConfiguredLocalVarHash = null;
+        _openOmsiConfiguredLocalSampleKey = null;
+        _openOmsiLastPublishedLocalVarsAt = null;
+        LocalOmsiScriptVarsSnapshotStore.Clear();
+        lock (_openOmsiV6Sync)
+        {
+            _openOmsiPresenceByLanId.Clear();
+            _openOmsiPresenceByPlayerId.Clear();
+            _openOmsiInfoByLanId.Clear();
+        }
+        _openOmsiVarTableByVehicle.Clear();
+        _openOmsiSyncTableByVehicle.Clear();
+        _openOmsiStateInterpolatorByLanId.Clear();
+        _openOmsiRemoteSyncProbeKey.Clear();
+        _openOmsiCompatibleRemoteSyncHash.Clear();
+        _openOmsiCompatibleRemoteSyncTable.Clear();
+        lock (_openOmsiV6Sync)
+        {
+            _openOmsiWorldDescriptions.Clear();
+            _openOmsiClientWorldDescriptions.Clear();
+            _openOmsiWorldCars.Clear();
+            _openOmsiWorldWantAt.Clear();
+            _openOmsiTrafficWireIdByKey.Clear();
+            _openOmsiHostTrafficActiveIds.Clear();
+        }
+        _openOmsiWorldSequence = 0;
+        _openOmsiTrafficReceiveSequence = 0;
+
+        if (session is not null)
+        {
+            await session.DisposeAsync();
+        }
+
+        if (webSocketClient is not null)
+        {
+            await webSocketClient.DisposeAsync();
+        }
+
+        if (webSocketGateway is not null)
+        {
+            await webSocketGateway.DisposeAsync();
+        }
+
+        if (quickTunnel is not null)
+        {
+            await quickTunnel.DisposeAsync();
+        }
+    }
+
+    private static string NormalizeOpenOmsiMapPath(string? mapName)
+    {
+        var value = mapName?.Trim().Replace('\\', '/');
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return string.Empty;
+        }
+
+        if (value.EndsWith("/global.cfg", StringComparison.OrdinalIgnoreCase))
+        {
+            return value;
+        }
+
+        if (value.StartsWith("maps/", StringComparison.OrdinalIgnoreCase))
+        {
+            return value.TrimEnd('/') + "/global.cfg";
+        }
+
+        return $"maps/{value.Trim('/')}/global.cfg";
+    }
+
+    private static string ResolveLanAdvertiseAddress()
+    {
+        try
+        {
+            return Dns.GetHostAddresses(Dns.GetHostName())
+                .FirstOrDefault(address =>
+                    address.AddressFamily == AddressFamily.InterNetwork &&
+                    !IPAddress.IsLoopback(address))
+                ?.ToString() ?? IPAddress.Loopback.ToString();
+        }
+        catch
+        {
+            return IPAddress.Loopback.ToString();
+        }
+    }
+}

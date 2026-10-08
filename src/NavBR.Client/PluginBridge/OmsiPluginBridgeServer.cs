@@ -263,6 +263,15 @@ public sealed class OmsiPluginBridgeServer : IAsyncDisposable
             return;
         }
 
+        if (string.Equals(
+                message.Type,
+                PluginBridgeProtocol.LocalVehicleVars,
+                StringComparison.Ordinal))
+        {
+            LocalOmsiScriptVarsSnapshotStore.Update(message);
+            return;
+        }
+
         if (string.Equals(message.Type, PluginBridgeProtocol.PluginCapabilities, StringComparison.Ordinal))
         {
             lock (_connectionSync)
@@ -287,7 +296,9 @@ public sealed class OmsiPluginBridgeServer : IAsyncDisposable
 
     private static bool IsClientMessageType(string type) =>
         string.Equals(type, PluginBridgeProtocol.LocalVehicleState, StringComparison.Ordinal) ||
+        string.Equals(type, PluginBridgeProtocol.ConfigureLocalVehicleVars, StringComparison.Ordinal) ||
         string.Equals(type, PluginBridgeProtocol.RemoteVehicleState, StringComparison.Ordinal) ||
+        string.Equals(type, PluginBridgeProtocol.RemoteVehicleVars, StringComparison.Ordinal) ||
         string.Equals(type, PluginBridgeProtocol.RemoteVehicleRemoved, StringComparison.Ordinal) ||
         string.Equals(type, PluginBridgeProtocol.ClearRemoteVehicles, StringComparison.Ordinal) ||
         string.Equals(type, PluginBridgeProtocol.TrafficSnapshotState, StringComparison.Ordinal) ||
@@ -340,6 +351,7 @@ public sealed class OmsiPluginBridgeServer : IAsyncDisposable
             _connectedAtUtc = DateTimeOffset.UtcNow;
             _lastPluginStatus = null;
             LocalOmsiOperationalSnapshotStore.Clear();
+            LocalOmsiScriptVarsSnapshotStore.Clear();
             _lastPluginCapabilities = null;
             PublishConnectionInfoUnsafe();
         }
@@ -360,6 +372,7 @@ public sealed class OmsiPluginBridgeServer : IAsyncDisposable
                 _connectedAtUtc = null;
                 _lastPluginStatus = null;
                 LocalOmsiOperationalSnapshotStore.Clear();
+                LocalOmsiScriptVarsSnapshotStore.Clear();
                 _lastPluginCapabilities = null;
                 PublishConnectionInfoUnsafe();
                 changed = true;

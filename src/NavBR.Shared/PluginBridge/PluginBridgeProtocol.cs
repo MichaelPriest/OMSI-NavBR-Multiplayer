@@ -14,7 +14,10 @@ public static class PluginBridgeProtocol
     public const string PluginCapabilities = "plugin-capabilities";
     public const string ClientHello = "client-hello";
     public const string LocalVehicleState = "local-vehicle-state";
+    public const string ConfigureLocalVehicleVars = "configure-local-vehicle-vars";
+    public const string LocalVehicleVars = "local-vehicle-vars";
     public const string RemoteVehicleState = "remote-vehicle-state";
+    public const string RemoteVehicleVars = "remote-vehicle-vars";
     public const string RemoteVehicleRemoved = "remote-vehicle-removed";
     public const string ClearRemoteVehicles = "clear-remote-vehicles";
     public const string TrafficSnapshotState = "traffic-snapshot-state";
@@ -43,6 +46,8 @@ public static class PluginBridgeProtocol
     public const string CapabilityVehicleTransform = "vehicle-transform";
     public const string CapabilityVehicleVisualState = "vehicle-visual-state";
     public const string CapabilityVehicleInterpolation = "vehicle-interpolation";
+    public const string CapabilityRemoteScriptVars = "remote-script-vars";
+    public const string CapabilityLocalScriptVars = "local-script-vars";
     public const string CapabilityVehicleTileSync = "vehicle-tile-sync";
     // Capability marker for the physical-grid/world-pose multiplayer path
     // introduced with state interop 25. Requiring this on the desktop makes a
@@ -189,4 +194,18 @@ public sealed record PluginBridgeMessage(
     double? AccelerationLocalX = null,
     double? AccelerationLocalY = null,
     double? AccelerationLocalZ = null,
-    VehicleSectionPose[]? RearSections = null);
+    VehicleSectionPose[]? RearSections = null,
+    uint? SyncTableHash = null,
+    uint? VarTableHash = null,
+    ushort[]? VariableIndices = null,
+    float[]? VariableValues = null,
+    ushort[]? StringVariableIndices = null,
+    string[]? StringVariableValues = null,
+    float[]? SyncLamps = null,
+    float[]? SyncSwitches = null,
+    float[]? SyncValues = null,
+    float[]? SyncDoors = null,
+    ushort[]? SyncLampVariableIndices = null,
+    ushort[]? SyncSwitchVariableIndices = null,
+    ushort[]? SyncValueVariableIndices = null,
+    ushort[]? SyncDoorVariableIndices = null);

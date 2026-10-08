@@ -18,8 +18,12 @@ public partial class MainWindow
     private DispatcherTimer? _hudStateTimer;
     private int _hudRefreshIntervalMs = 200;
     private int? _hudAttachedOmsiProcessId;
+    private DateTimeOffset _lastHudRoadTrafficReadUtc = DateTimeOffset.MinValue;
+    private IReadOnlyList<TrafficVehicleState> _lastHudRoadTraffic =
+        Array.Empty<TrafficVehicleState>();
     private bool _multiplayerLocalizationHooked;
     private bool _hudLifetimeHooked;
+    private bool _inGameConnectionBusy;
 
     private void MultiplayerButton_Loaded(object sender, RoutedEventArgs e)
     {
@@ -208,28 +212,42 @@ public partial class MainWindow
         hud.RoleplayButtonRequested += HandleHudRoleplayButtonRequestedForShell;
         hud.InGamePanelOpened += HandleHudInGamePanelOpened;
         hud.InGameConnectRequested += HandleHudInGameConnectRequested;
+        hud.InGameHostRequested += HandleHudInGameHostRequested;
+        hud.InGameDisconnectRequested += HandleHudInGameDisconnectRequested;
         hud.InGameAssistanceRequested += HandleHudInGameAssistanceRequested;
         hud.InGameIncidentRequested += HandleHudInGameIncidentRequested;
         hud.InGameOperationalResolvedRequested += HandleHudInGameOperationalResolvedRequested;
         hud.InGameDispatchAcknowledgeRequested += HandleHudInGameDispatchAcknowledgeRequested;
         hud.InGameDispatchResolveRequested += HandleHudInGameDispatchResolveRequested;
         hud.InGameRoleplaySelectionRequested += HandleHudInGameRoleplaySelectionRequestedForShell;
+        hud.InGameRoleplayFreeRoamChanged += HandleHudInGameRoleplayFreeRoamChanged;
+        hud.InGamePerformanceProfileChanged += HandleHudInGamePerformanceProfileChanged;
+        hud.InGameVoiceEnabledChanged += HandleHudInGameVoiceEnabledChanged;
+        hud.InGamePhysicalVehiclesChanged += HandleHudInGamePhysicalVehiclesChanged;
         var processId = GetActiveSimulatorProcessIdForHud();
         hud.AttachOmsiProcess(processId);
         _hudAttachedOmsiProcessId = processId;
         hud.UpdateLocalTelemetry(_lastTelemetry, GetActiveMapForMultiplayer());
+        RefreshHudRoadTraffic(force: true);
+        hud.UpdateLocalRoadTraffic(_lastHudRoadTraffic);
         hud.UpdateCameraProjection(_telemetryProvider.ReadCameraProjection());
         hud.Closed += (_, _) =>
         {
             hud.RoleplayButtonRequested -= HandleHudRoleplayButtonRequestedForShell;
             hud.InGamePanelOpened -= HandleHudInGamePanelOpened;
             hud.InGameConnectRequested -= HandleHudInGameConnectRequested;
+            hud.InGameHostRequested -= HandleHudInGameHostRequested;
+            hud.InGameDisconnectRequested -= HandleHudInGameDisconnectRequested;
             hud.InGameAssistanceRequested -= HandleHudInGameAssistanceRequested;
             hud.InGameIncidentRequested -= HandleHudInGameIncidentRequested;
             hud.InGameOperationalResolvedRequested -= HandleHudInGameOperationalResolvedRequested;
             hud.InGameDispatchAcknowledgeRequested -= HandleHudInGameDispatchAcknowledgeRequested;
             hud.InGameDispatchResolveRequested -= HandleHudInGameDispatchResolveRequested;
             hud.InGameRoleplaySelectionRequested -= HandleHudInGameRoleplaySelectionRequestedForShell;
+            hud.InGameRoleplayFreeRoamChanged -= HandleHudInGameRoleplayFreeRoamChanged;
+            hud.InGamePerformanceProfileChanged -= HandleHudInGamePerformanceProfileChanged;
+            hud.InGameVoiceEnabledChanged -= HandleHudInGameVoiceEnabledChanged;
+            hud.InGamePhysicalVehiclesChanged -= HandleHudInGamePhysicalVehiclesChanged;
 
             if (ReferenceEquals(_hudOverlay, hud))
             {
@@ -294,6 +312,8 @@ public partial class MainWindow
         }
 
         _hudOverlay.UpdateLocalTelemetry(_lastTelemetry, GetActiveMapForMultiplayer());
+        RefreshHudRoadTraffic();
+        _hudOverlay.UpdateLocalRoadTraffic(_lastHudRoadTraffic);
 
         var pluginConnection = (System.Windows.Application.Current as App)?
             .PluginBridge
@@ -334,6 +354,58 @@ public partial class MainWindow
         UpdateHudRefreshCadence();
     }
 
+    private void RefreshHudRoadTraffic(bool force = false)
+    {
+        var now = DateTimeOffset.UtcNow;
+        if (!force &&
+            now - _lastHudRoadTrafficReadUtc < TimeSpan.FromMilliseconds(500d))
+        {
+            return;
+        }
+
+        _lastHudRoadTrafficReadUtc = now;
+        if (!_telemetryProvider.IsAttached ||
+            _lastTelemetry?.IsInGame != true)
+        {
+            _lastHudRoadTraffic = Array.Empty<TrafficVehicleState>();
+            return;
+        }
+
+        _lastHudRoadTraffic = _telemetryProvider.ReadRoadTraffic(
+            maxVehicles: 48,
+            radiusMeters: 900d);
+    }
+
+    private void HandleHudInGameVoiceEnabledChanged(bool enabled)
+    {
+        OpenMultiplayerCentralForShell(showWindow: false);
+        _multiplayerWindow?.SetVoiceEnabledFromWeb(enabled);
+        UpdateHudInGamePanelState();
+    }
+
+    private async void HandleHudInGamePhysicalVehiclesChanged(bool enabled)
+    {
+        OpenMultiplayerCentralForShell(showWindow: false);
+        if (_multiplayerWindow is not null)
+        {
+            await _multiplayerWindow.ConfigurePhysicalVehiclesFromWebAsync(enabled);
+        }
+
+        UpdateHudInGamePanelState();
+    }
+
+    private void HandleHudInGameRoleplayFreeRoamChanged(bool enabled)
+    {
+        _roleplayCharacterController?.SetFreeRoamEnabled(enabled);
+        UpdateHudRoleplayStateForShell();
+    }
+
+    private async void HandleHudInGamePerformanceProfileChanged(string profile)
+    {
+        await SetPerformanceProfileFromWebAsync(profile);
+        UpdateHudLocalState();
+    }
+
     private void HandleHudInGamePanelOpened()
     {
         // The in-game menu is allowed to bootstrap the controller silently.
@@ -344,6 +416,24 @@ public partial class MainWindow
     }
 
     private async void HandleHudInGameConnectRequested()
+    {
+        if (_inGameConnectionBusy)
+        {
+            return;
+        }
+
+        _inGameConnectionBusy = true;
+        try
+        {
+            await ConnectFromInGamePanelAsync();
+        }
+        finally
+        {
+            _inGameConnectionBusy = false;
+        }
+    }
+
+    private async Task ConnectFromInGamePanelAsync()
     {
         OpenMultiplayerCentralForShell(showWindow: false);
         if (_multiplayerWindow is null)
@@ -361,15 +451,19 @@ public partial class MainWindow
         try
         {
             _hudOverlay?.SetInGameConnectionNotice(
-                "conectando ao último servidor/sala...");
+                "conectando à sala selecionada...");
             UpdateHudInGamePanelState();
 
+            // Use the actual fields entered in the in-game menu. Passing
+            // null retains the saved setting for backwards compatibility.
+            var inputs = _hudOverlay?.GetInGameConnectionParameters();
             await _multiplayerWindow.ConnectFromWebAsync(
-                serverUrl: null,
-                roomId: null,
-                displayName: null,
-                roomPassword: null);
+                serverUrl: inputs?.ServerUrl,
+                roomId: inputs?.RoomId,
+                displayName: inputs?.DisplayName,
+                roomPassword: inputs?.RoomPassword);
 
+            _hudOverlay?.ClearInGameRoomPassword();
             _hudOverlay?.SetInGameConnectionNotice(null);
         }
         catch (Exception ex)
@@ -387,6 +481,88 @@ public partial class MainWindow
         }
         finally
         {
+            UpdateHudInGamePanelState();
+        }
+    }
+
+    private async void HandleHudInGameHostRequested(bool exposeInternet)
+    {
+        if (_inGameConnectionBusy)
+        {
+            return;
+        }
+
+        _inGameConnectionBusy = true;
+        try
+        {
+            OpenMultiplayerCentralForShell(showWindow: false);
+            if (_multiplayerWindow is null)
+            {
+                return;
+            }
+
+            if (_multiplayerWindow.IsConnected)
+            {
+                _hudOverlay?.SetInGameConnectionNotice(
+                    "desconecte da sala atual antes de hospedar outra");
+                return;
+            }
+
+            var inputs = _hudOverlay?.GetInGameConnectionParameters();
+            _hudOverlay?.SetInGameConnectionNotice(
+                exposeInternet ? "abrindo sala e acesso à internet..." : "abrindo sala LAN...");
+            await _multiplayerWindow.StartLocalHostFromWebAsync(
+                roomId: inputs?.RoomId,
+                displayName: inputs?.DisplayName,
+                createPrivateRoom: !string.IsNullOrWhiteSpace(inputs?.RoomPassword),
+                roomPassword: inputs?.RoomPassword,
+                exposeInternet: exposeInternet);
+            _hudOverlay?.ClearInGameRoomPassword();
+            _hudOverlay?.SetInGameConnectionNotice(
+                exposeInternet ? "sala hospedada • internet" : "sala hospedada • LAN");
+        }
+        catch (Exception ex)
+        {
+            var message = ex.Message.Trim();
+            if (message.Length > 120) message = message[..120] + "…";
+            _hudOverlay?.SetInGameConnectionNotice(
+                $"não foi possível hospedar • {message}");
+        }
+        finally
+        {
+            _inGameConnectionBusy = false;
+            UpdateHudInGamePanelState();
+        }
+    }
+
+    private async void HandleHudInGameDisconnectRequested()
+    {
+        if (_inGameConnectionBusy)
+        {
+            return;
+        }
+
+        _inGameConnectionBusy = true;
+        try
+        {
+            if (_multiplayerWindow is not null)
+            {
+                await _multiplayerWindow.StopLocalHostFromWebAsync();
+            }
+
+            _hudOverlay?.ClearInGameRoomPassword();
+            _hudOverlay?.SetInGameConnectionNotice("desconectado");
+        }
+        catch (Exception ex)
+        {
+            var message = ex.Message.Trim();
+            if (message.Length > 120) message = message[..120] + "…";
+            _hudOverlay?.SetInGameConnectionNotice(
+                $"falha ao desconectar • {message}");
+        }
+        finally
+        {
+            _inGameConnectionBusy = false;
             UpdateHudInGamePanelState();
         }
     }
@@ -515,8 +691,12 @@ public partial class MainWindow
                 ? " • SHA OK"
                 : " • SHA PENDING";
 
+            var sessionCode = multiplayer?.OpenOmsiSessionCodeForShell;
+            var sessionLabel = string.IsNullOrWhiteSpace(sessionCode)
+                ? string.Empty
+                : $" • CÓDIGO {sessionCode}";
             runtimeStatus =
-                $"RUNTIME • openOMSI • {streamState}{rate} • REMOTOS {gateway.RemotePlayers}{identity}";
+                $"RUNTIME • openOMSI • {streamState}{rate} • REMOTOS {gateway.RemotePlayers}{identity}{sessionLabel}";
             runtimeHealthy =
                 gateway.ClientConnected &&
                 gateway.LocalStateFrames > 0;
@@ -531,6 +711,12 @@ public partial class MainWindow
                 : "RUNTIME • OMSI 2 • PLUGIN OFFLINE";
             runtimeHealthy = pluginConnected;
         }
+
+        _hudOverlay.UpdateInGameOnlineFeatureState(
+            voiceEnabled: multiplayer?.VoiceEnabledForShell == true,
+            physicalVehiclesEnabled:
+                multiplayer?.PhysicalVehiclesEnabledForShell ??
+                ExperimentalFeatureFlags.PhysicalVehiclesEnabled);
 
         _hudOverlay.UpdateInGamePanelState(
             connected: multiplayer?.IsConnected == true,

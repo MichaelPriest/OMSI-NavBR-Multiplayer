@@ -86,6 +86,14 @@ public partial class MultiplayerWindow
                     physicalVehiclePartCount = physicalVehicleStatus?.PartCount,
                     physicalVehicleExpectedPartCount = physicalVehicleStatus?.ExpectedPartCount,
                     physicalVehicleUpdatedAtUtc = physicalVehicleStatus?.UpdatedAtUtc,
+                    openOmsiVisualSyncStatus = isLocal
+                        ? null
+                        : _client.GetRemoteOpenOmsiVisualSyncStatus(
+                            player.PlayerId),
+                    openOmsiVisualSyncHash = isLocal
+                        ? null
+                        : _client.GetRemoteOpenOmsiVisualSyncHash(
+                            player.PlayerId)?.ToString("X8"),
                     physicalTelemetryGridX = !isLocal ? telemetry?.PhysicalGridX : null,
                     physicalTelemetryGridY = !isLocal ? telemetry?.PhysicalGridY : null,
                     physicalTelemetryNavigationGridX = !isLocal ? telemetry?.GridX : null,
@@ -170,12 +178,11 @@ public partial class MultiplayerWindow
                         : "lan-only";
         var transportMode = !_client.IsConnected
             ? "none"
-            : _host.IsRunning
-                ? "direct-host"
-                : _settings.EnableApplicationRelay &&
-                  !IsLoopbackServerUrl(ServerTextBox.Text.Trim())
-                    ? "dedicated-server"
-                    : "remote-host";
+            : _client.UsesOpenOmsiV6Transport
+                ? _client.IsOpenOmsiV6Host
+                    ? "openomsi-host"
+                    : "openomsi-client"
+                : "service-sidecar-only";
 
         return new
         {
@@ -226,8 +233,21 @@ public partial class MultiplayerWindow
                 .Select(option => option.Name)
                 .ToArray(),
             relayEnabled = _settings.EnableApplicationRelay,
-            physicalVehiclesEnabled = ExperimentalFeatureFlags.PhysicalVehiclesEnabled,
+            physicalVehiclesEnabled = true,
             physicalVehiclesAvailable = _client.IsPhysicalMultiplayerAvailable,
+            openOmsiV6 = new
+            {
+                active = _client.UsesOpenOmsiV6Transport,
+                isHost = _client.IsOpenOmsiV6Host,
+                port = _client.OpenOmsiV6Port,
+                sessionCode = _client.OpenOmsiV6SessionCode,
+                webSocketUrl = _client.OpenOmsiV6WebSocketUrl,
+                role = !_client.UsesOpenOmsiV6Transport
+                    ? "offline"
+                    : _client.IsOpenOmsiV6Host
+                        ? "host"
+                        : "client"
+            },
             networkQuality = new
             {
                 level = networkQuality.Level.ToString(),
@@ -465,6 +485,11 @@ public partial class MultiplayerWindow
                 0d,
                 2d));
     }
+
+    internal bool VoiceEnabledForShell =>
+        VoiceEnabledCheckBox.IsChecked == true;
+
+    internal bool PhysicalVehiclesEnabledForShell => true;
 
     internal bool IsHostRunningForWeb => _host.IsRunning;
 

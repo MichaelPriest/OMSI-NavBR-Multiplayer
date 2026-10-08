@@ -12,7 +12,7 @@ Environment.SetEnvironmentVariable(
     "NAVBR_OMSI_PHYSICAL_BACKEND",
     "1");
 
-await using var gateway = new OpenOmsiLanGateway();
+var gateway = new OpenOmsiLanGateway();
 var localTelemetryTcs =
     new TaskCompletionSource<VehicleTelemetry>(
         TaskCreationOptions.RunContinuationsAsynchronously);
@@ -816,8 +816,72 @@ finally
     }
 }
 
+
+await gateway.DisposeAsync();
+
+var bridgeWorld = new OpenOmsiLanWorld(
+    "maps/Grundorf/global.cfg",
+    "2026-10-07",
+    36000d,
+    string.Empty,
+    "autumn");
+
+await using (var bridgeHost = new OpenOmsiLanPeerSession())
+{
+    await bridgeHost.StartHostAsync(bridgeWorld);
+    var hostPort = bridgeHost.Port
+        ?? throw new InvalidOperationException("WebSocket bridge host did not bind UDP.");
+
+    var freeTcpPort = GetFreeTcpPort();
+    await using var wsGateway = await OpenOmsiWebSocketGateway.StartAsync(
+        freeTcpPort,
+        new IPEndPoint(IPAddress.Loopback, hostPort));
+
+    await using var wsClient = await OpenOmsiWebSocketClient.ConnectAsync(
+        $"http://127.0.0.1:{freeTcpPort}");
+
+    await using var bridgeClient = new OpenOmsiLanPeerSession();
+    await bridgeClient.JoinAsync(
+        wsClient.LocalEndpoint,
+        bridgeWorld,
+        "WS Driver",
+        @"Vehicles\MAN_NL_NG\MAN_EN92_main.bus");
+
+    Require(
+        bridgeClient.LocalPlayerId >= 2,
+        "WebSocket bridge did not carry openOMSI HELLO/WELCOME.");
+
+    var stateTcs = new TaskCompletionSource<OpenOmsiLanVehicleState>(
+        TaskCreationOptions.RunContinuationsAsynchronously);
+    bridgeHost.RemoteStateReceived += state =>
+    {
+        if (state.PlayerId == bridgeClient.LocalPlayerId)
+        {
+            stateTcs.TrySetResult(state);
+        }
+    };
+
+    await bridgeClient.PublishStateAsync(
+        OpenOmsiLanVehicleState.Empty(
+            bridgeClient.LocalPlayerId,
+            5) with
+        {
+            Flags = OpenOmsiLanProtocol.FlagVehicle,
+            X = 77.25,
+            Y = 88.5,
+            Z = 1.3,
+            HeadingDegrees = 42f,
+            SpeedKph = 18f,
+            SentMilliseconds = 250
+        });
+
+    var bridgedState = await stateTcs.Task.WaitAsync(TimeSpan.FromSeconds(4));
+    Near(bridgedState.X, 77.25, 0.01, "websocket bridged x");
+    Near(bridgedState.Y, 88.5, 0.01, "websocket bridged y");
+}
+
 Console.WriteLine(
-    $"openOMSI LAN gateway smoke passed on 127.0.0.1:{port}: DISCOVER/HELLO/WELCOME/INFO/STATE/PLACE/NEAR + pending identity gate + canonical remote + native OMSI D3D axis/articulation + live diagnostics + official drawn status + fresh-only reconnect replay + stale peer expiry + BYE.");
+    $"openOMSI LAN gateway smoke passed on 127.0.0.1:{port}: DISCOVER/HELLO/WELCOME/INFO/STATE/PLACE/NEAR + pending identity gate + canonical remote + native OMSI D3D axis/articulation + live diagnostics + official drawn status + fresh-only reconnect replay + stale peer expiry + BYE + WebSocket datagram bridge.");
 
 static async Task SendTextAsync(
     UdpClient client,
@@ -1007,5 +1071,20 @@ static void Near(double actual, double expected, double tolerance, string label)
     {
         throw new InvalidOperationException(
             $"{label}: expected {expected}, got {actual} (tol {tolerance}).");
+    }
+}
+
+
+static int GetFreeTcpPort()
+{
+    var listener = new TcpListener(IPAddress.Loopback, 0);
+    listener.Start();
+    try
+    {
+        return ((IPEndPoint)listener.LocalEndpoint).Port;
+    }
+    finally
+    {
+        listener.Stop();
     }
 }

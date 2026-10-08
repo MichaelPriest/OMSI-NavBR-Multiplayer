@@ -53,6 +53,83 @@ public static class OmsiPluginBridgeRelay
         return SendBestEffortAsync(message, cancellationToken);
     }
 
+    public static Task ForwardAdmittedRemotePhysicalStateAsync(
+        PlayerTelemetryFrame frame,
+        CancellationToken cancellationToken = default)
+    {
+        var telemetry = frame.Telemetry;
+        var playerId = frame.Player.PlayerId;
+        if (string.IsNullOrWhiteSpace(playerId))
+        {
+            return Task.CompletedTask;
+        }
+
+        // openOMSI keeps remote vehicle lifecycle driven by the continuous
+        // v6 state stream instead of waiting on a second synchronous
+        // spawn/update request. VehicleInstanceId marks a state that the
+        // desktop received from a room-bound openOMSI v6 peer with a concrete
+        // INFO vehicle identity. SignalR sidecar telemetry never receives this
+        // marker and therefore cannot command native OMSI RoadVehicles.
+        var message = CreateStateMessage(
+            PluginBridgeProtocol.RemoteVehicleState,
+            telemetry,
+            playerId,
+            frame.Player.DisplayName,
+            telemetry.MapCompatibilityId ?? frame.Player.MapCompatibilityId)
+            with
+            {
+                VehicleInstanceId = playerId
+            };
+
+        return SendBestEffortAsync(message, cancellationToken);
+    }
+
+    public static Task ConfigureLocalVarsAsync(
+        uint varTableHash,
+        IReadOnlyList<ushort> variableIds,
+        IReadOnlyList<ushort> stringVariableIds,
+        CancellationToken cancellationToken = default)
+    {
+        if (varTableHash == 0 ||
+            variableIds.Count > 512 ||
+            stringVariableIds.Count > 64)
+        {
+            return Task.CompletedTask;
+        }
+
+        var message = new PluginBridgeMessage(
+            PluginBridgeProtocol.ConfigureLocalVehicleVars,
+            PluginBridgeProtocol.Version,
+            VarTableHash: varTableHash,
+            VariableIndices: variableIds.ToArray(),
+            StringVariableIndices: stringVariableIds.ToArray());
+
+        return SendBestEffortAsync(message, cancellationToken);
+    }
+
+    public static Task ForwardRemoteVarsAsync(
+        string playerId,
+        NavBR.Shared.OpenOmsi.OpenOmsiVarsFrame vars,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(playerId))
+        {
+            return Task.CompletedTask;
+        }
+
+        var message = new PluginBridgeMessage(
+            PluginBridgeProtocol.RemoteVehicleVars,
+            PluginBridgeProtocol.Version,
+            PlayerId: playerId,
+            VarTableHash: vars.TableHash,
+            VariableIndices: vars.Floats.Select(item => item.Index).ToArray(),
+            VariableValues: vars.Floats.Select(item => item.Value).ToArray(),
+            StringVariableIndices: vars.Strings.Select(item => item.Index).ToArray(),
+            StringVariableValues: vars.Strings.Select(item => item.Value).ToArray());
+
+        return SendBestEffortAsync(message, cancellationToken);
+    }
+
     public static Task RemoveRemotePlayerAsync(
         string playerId,
         CancellationToken cancellationToken = default)
@@ -319,7 +396,16 @@ public static class OmsiPluginBridgeRelay
             AccelerationLocalX: telemetry.AccelerationLocalX,
             AccelerationLocalY: telemetry.AccelerationLocalY,
             AccelerationLocalZ: telemetry.AccelerationLocalZ,
-            RearSections: telemetry.RearSections);
+            RearSections: telemetry.RearSections,
+            SyncTableHash: telemetry.SyncTableHash,
+            SyncLamps: telemetry.OpenOmsiLamps,
+            SyncSwitches: telemetry.OpenOmsiSwitches,
+            SyncValues: telemetry.OpenOmsiValues,
+            SyncDoors: telemetry.OpenOmsiDoors,
+            SyncLampVariableIndices: telemetry.OpenOmsiLampIds,
+            SyncSwitchVariableIndices: telemetry.OpenOmsiSwitchIds,
+            SyncValueVariableIndices: telemetry.OpenOmsiValueIds,
+            SyncDoorVariableIndices: telemetry.OpenOmsiDoorIds);
     }
 
     private static async Task<PluginBridgeMessage?> SendCommandBestEffortAsync(

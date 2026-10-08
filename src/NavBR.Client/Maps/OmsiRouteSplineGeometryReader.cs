@@ -64,7 +64,7 @@ internal static class OmsiRouteSplineGeometryReader
             StringComparer.OrdinalIgnoreCase);
         var pathOffsetCache = new Dictionary<string, IReadOnlyList<double>>(
             StringComparer.OrdinalIgnoreCase);
-        var result = new List<OmsiRouteTracePoint>();
+        var segments = new List<List<OmsiRouteTracePoint>>();
 
         foreach (var entry in entries)
         {
@@ -100,6 +100,41 @@ internal static class OmsiRouteSplineGeometryReader
                 segment = scenerySegment.ToList();
             }
 
+            if (segment.Count > 0)
+            {
+                segments.Add(segment);
+            }
+        }
+
+        if (segments.Count == 0)
+        {
+            return Array.Empty<OmsiRouteTracePoint>();
+        }
+
+        // The first timetable entry can legitimately travel a path backwards.
+        // With no previous segment the old greedy orientation always kept the
+        // spline's native direction, which could invert route progress and the
+        // first maneuver. Pick the first segment end that best connects to the
+        // next real lane, then orient the remaining segments consecutively.
+        if (segments.Count > 1 && segments[0].Count > 1 && segments[1].Count > 0)
+        {
+            var first = segments[0];
+            var next = segments[1];
+            var forwardConnection = Math.Min(
+                DistanceSquared(first[^1], next[0], tileSize),
+                DistanceSquared(first[^1], next[^1], tileSize));
+            var reverseConnection = Math.Min(
+                DistanceSquared(first[0], next[0], tileSize),
+                DistanceSquared(first[0], next[^1], tileSize));
+            if (reverseConnection < forwardConnection)
+            {
+                first.Reverse();
+            }
+        }
+
+        var result = new List<OmsiRouteTracePoint>();
+        foreach (var segment in segments)
+        {
             AppendOriented(result, segment, tileSize);
         }
 

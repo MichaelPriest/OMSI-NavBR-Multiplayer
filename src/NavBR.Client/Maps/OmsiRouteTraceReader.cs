@@ -15,10 +15,11 @@ public sealed record OmsiRouteTraceDiagnostics(
     int PointCount);
 
 /// <summary>
-/// Reads the active OMSI timetable track (.ttr). Whenever possible NavBR now
-/// resolves track entries against the real spline placement stored in the tile
-/// .map file; if that detailed geometry is unavailable it keeps the coarse,
-/// trustworthy tile-centre fallback instead of inventing a road shape.
+/// Reads the active OMSI timetable route from the trip's real lane sequence.
+/// Tracks (.ttr) are used when present; ordinary bus trips are reconstructed
+/// from station links (StnLinks.cfg). Every entry is then resolved against the
+/// actual spline/scenery path geometry in the map. Incomplete geometry fails
+/// closed instead of drawing a synthetic tile-centre route.
 /// </summary>
 public static class OmsiRouteTraceReader
 {
@@ -42,7 +43,8 @@ public static class OmsiRouteTraceReader
         OmsiMapInfo map,
         OmsiMapLayout layout,
         string? activeTrackOrTarget,
-        string? activeLine = null)
+        string? activeLine = null,
+        string? activeDestination = null)
     {
         if (layout.TileSize is not double tileSize)
         {
@@ -59,35 +61,12 @@ public static class OmsiRouteTraceReader
 
         try
         {
-            var trackPath = FindTrackPath(map.DirectoryPath, activeTrackOrTarget);
-            if (trackPath is null)
-            {
-                var resolvedTrackName = ResolveTrackNameFromTrip(
-                    map.DirectoryPath,
-                    activeLine,
-                    activeTrackOrTarget);
-                trackPath = FindTrackPath(map.DirectoryPath, resolvedTrackName);
-            }
-
-            if (trackPath is null)
-            {
-                WriteDiagnostics(
-                    map,
-                    null,
-                    activeLine,
-                    activeTrackOrTarget,
-                    "track-not-found",
-                    0,
-                    0);
-                return Array.Empty<OmsiRouteTracePoint>();
-            }
-
             var tileCatalog = ReadTileIndexCatalog(map.GlobalConfigPath);
             if (tileCatalog.Count == 0)
             {
                 WriteDiagnostics(
                     map,
-                    trackPath,
+                    null,
                     activeLine,
                     activeTrackOrTarget,
                     "tile-catalog-empty",
@@ -96,44 +75,142 @@ public static class OmsiRouteTraceReader
                 return Array.Empty<OmsiRouteTracePoint>();
             }
 
-            var entries = ReadTrackEntries(File.ReadAllLines(trackPath), tileCatalog);
-            if (entries.Count == 0)
+            var tripPath = FindTripPath(
+                map.DirectoryPath,
+                activeTrackOrTarget,
+                activeLine,
+                activeDestination);
+
+            var trackPath = FindTrackPath(
+                map.DirectoryPath,
+                activeTrackOrTarget);
+
+            if (trackPath is null && tripPath is not null)
+            {
+                trackPath = FindTrackPath(
+                    map.DirectoryPath,
+                    ReadTripTrackName(tripPath));
+            }
+
+            if (trackPath is null)
+            {
+                var resolvedTrackName = ResolveTrackNameFromTrip(
+                    map.DirectoryPath,
+                    activeLine,
+                    activeTrackOrTarget);
+                trackPath = FindTrackPath(
+                    map.DirectoryPath,
+                    resolvedTrackName);
+            }
+
+            // OMSI often exposes Route as an IBIS/direction code (for example
+            // "01") while the .ttp identifies the trip by its terminus. Do not
+            // stop after the route-code lookup fails: line + destination is the
+            // reliable second key for choosing the correct trip direction.
+            if (trackPath is null &&
+                !string.IsNullOrWhiteSpace(activeDestination) &&
+                !string.Equals(
+                    Normalize(activeDestination),
+                    Normalize(activeTrackOrTarget ?? string.Empty),
+                    StringComparison.Ordinal))
+            {
+                var resolvedFromDestination = ResolveTrackNameFromTrip(
+                    map.DirectoryPath,
+                    activeLine,
+                    activeDestination);
+                trackPath = FindTrackPath(
+                    map.DirectoryPath,
+                    resolvedFromDestination);
+            }
+
+            if (trackPath is null &&
+                !string.IsNullOrWhiteSpace(activeDestination))
+            {
+                trackPath = FindTrackPath(
+                    map.DirectoryPath,
+                    activeDestination);
+            }
+
+            IReadOnlyList<OmsiRouteTrackEntry> entries;
+            string sourceMode;
+            string? sourcePath;
+
+            if (trackPath is not null)
+            {
+                entries = ReadTrackEntries(
+                    File.ReadAllLines(trackPath),
+                    tileCatalog);
+                sourceMode = "track";
+                sourcePath = trackPath;
+            }
+            else if (tripPath is not null)
+            {
+                entries = ReadStationLinkEntries(
+                    map.DirectoryPath,
+                    tripPath,
+                    tileCatalog);
+                sourceMode = "station-links";
+                sourcePath = tripPath;
+            }
+            else
             {
                 WriteDiagnostics(
                     map,
-                    trackPath,
+                    null,
                     activeLine,
                     activeTrackOrTarget,
-                    "track-empty",
+                    "route-source-not-found",
                     0,
                     0);
                 return Array.Empty<OmsiRouteTracePoint>();
             }
 
-            var splineTrace = OmsiRouteSplineGeometryReader.TryBuild(map, layout, entries);
-            if (splineTrace.Count >= 2 && IsDetailedTraceContinuous(splineTrace, tileSize))
+            if (entries.Count == 0)
             {
                 WriteDiagnostics(
                     map,
-                    trackPath,
+                    sourcePath,
                     activeLine,
                     activeTrackOrTarget,
-                    "detailed",
+                    sourceMode == "track"
+                        ? "track-empty"
+                        : "station-links-empty",
+                    0,
+                    0);
+                return Array.Empty<OmsiRouteTracePoint>();
+            }
+
+            var splineTrace = OmsiRouteSplineGeometryReader.TryBuild(
+                map,
+                layout,
+                entries);
+            if (splineTrace.Count >= 2 &&
+                IsDetailedTraceContinuous(splineTrace, tileSize))
+            {
+                WriteDiagnostics(
+                    map,
+                    sourcePath,
+                    activeLine,
+                    activeTrackOrTarget,
+                    sourceMode == "track"
+                        ? "detailed"
+                        : "station-links-detailed",
                     entries.Count,
                     splineTrace.Count);
                 return splineTrace;
             }
 
-            var fallback = BuildTileFallback(entries, tileSize);
             WriteDiagnostics(
                 map,
-                trackPath,
+                sourcePath,
                 activeLine,
                 activeTrackOrTarget,
-                splineTrace.Count >= 2 ? "tile-fallback-gap" : "tile-fallback",
+                splineTrace.Count >= 2
+                    ? $"{sourceMode}-geometry-gap"
+                    : $"{sourceMode}-geometry-unresolved",
                 entries.Count,
-                fallback.Count);
-            return fallback;
+                splineTrace.Count);
+            return Array.Empty<OmsiRouteTracePoint>();
         }
         catch (IOException)
         {
@@ -193,27 +270,51 @@ public static class OmsiRouteTraceReader
 
         for (var i = 0; i < lines.Length; i++)
         {
-            if (!string.Equals(lines[i].Trim(), "[track_entry]", StringComparison.OrdinalIgnoreCase))
+            if (!string.Equals(
+                    lines[i].Trim(),
+                    "[track_entry]",
+                    StringComparison.OrdinalIgnoreCase))
             {
                 continue;
             }
 
-            // OMSI 2 TTR [track_entry] layout used by the timetable editor:
+            // Native OMSI 2 TTR layout:
             // object/spline id
-            // path id
-            // tile id (Kachel-ID: index in the [map] list of global.cfg)
-            // internal/auxiliary value (not needed to locate the tile)
-            // approximate path length
-            // flags/reserved (normally 0)
+            // path index inside the .sli/.sco
+            // tile index (position of [map] in global.cfg)
+            // internal per-tile path number/cache
+            // path length
+            // reserved (normally 0)
             //
-            // The third and fourth values are NOT GridX/GridY. This matters on
-            // world-coordinate maps, where real grid coordinates can be values
-            // such as -14445/8871 while TTR tile ids remain small integers.
+            // Older/custom tools may write GridX/GridY instead of tile index +
+            // internal path number. Always prefer the native tile-index form.
             if (i + 5 >= lines.Length ||
-                !int.TryParse(lines[i + 1].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var objectId) ||
-                !int.TryParse(lines[i + 2].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var pathId) ||
-                !int.TryParse(lines[i + 3].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var tileId) ||
-                !tileCatalog.TryGetValue(tileId, out var grid))
+                !TryParseInteger(lines[i + 1], out var objectId) ||
+                !TryParseInteger(lines[i + 2], out var pathId) ||
+                !TryParseInteger(lines[i + 3], out var thirdValue) ||
+                !TryParseInteger(lines[i + 4], out var fourthValue))
+            {
+                continue;
+            }
+
+            (int GridX, int GridY) grid;
+            var directGridExists = tileCatalog.Values.Any(candidate =>
+                candidate.GridX == thirdValue &&
+                candidate.GridY == fourthValue);
+            if (directGridExists)
+            {
+                // Native OMSI TTR stores GridX/GridY directly. Prefer this
+                // interpretation even when GridX also happens to be a valid
+                // ordered [map] index in large maps.
+                grid = (thirdValue, fourthValue);
+            }
+            else if (tileCatalog.TryGetValue(
+                         thirdValue,
+                         out var indexedGrid))
+            {
+                grid = indexedGrid;
+            }
+            else
             {
                 continue;
             }
@@ -230,7 +331,9 @@ public static class OmsiRouteTraceReader
                 pathId,
                 grid.GridX,
                 grid.GridY,
-                double.IsFinite(pathLength) && pathLength > 0d ? pathLength : 0d));
+                double.IsFinite(pathLength) && pathLength > 0d
+                    ? pathLength
+                    : 0d));
         }
 
         return entries;
@@ -250,9 +353,9 @@ public static class OmsiRouteTraceReader
                 continue;
             }
 
-            // OMSI timetable files reference the ordered [map] entries by
-            // Kachel-ID. The entry itself stores the real grid X/Y directly
-            // below [map], followed by the tile .map filename.
+            // Keep an ordered tile-id catalog as a compatibility fallback.
+            // Native OMSI TTR entries carry GridX/GridY directly, but older or
+            // custom timetable tooling can still reference ordered [map] slots.
             if (i + 2 < lines.Length &&
                 int.TryParse(lines[i + 1].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var gridX) &&
                 int.TryParse(lines[i + 2].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var gridY))
@@ -266,30 +369,338 @@ public static class OmsiRouteTraceReader
         return result;
     }
 
-    private static IReadOnlyList<OmsiRouteTracePoint> BuildTileFallback(
-        IReadOnlyList<OmsiRouteTrackEntry> entries,
-        double tileSize)
+    private static string? FindTripPath(
+        string mapDirectory,
+        string? activeRoute,
+        string? activeLine,
+        string? activeDestination)
     {
-        var points = new List<OmsiRouteTracePoint>();
-        (int X, int Y)? previousGrid = null;
+        var routeKey = Normalize(activeRoute ?? string.Empty);
+        var lineKey = Normalize(activeLine ?? string.Empty);
+        var destinationKey = Normalize(activeDestination ?? string.Empty);
 
-        foreach (var entry in entries)
+        if (routeKey.Length > 0)
         {
-            var grid = (entry.GridX, entry.GridY);
-            if (previousGrid == grid)
+            foreach (var directory in GetTimetableDirectories(mapDirectory))
+            {
+                foreach (var path in EnumerateTripFiles(directory))
+                {
+                    if (Normalize(Path.GetFileNameWithoutExtension(path)) == routeKey)
+                    {
+                        return path;
+                    }
+                }
+            }
+        }
+
+        var lineOnlyMatches = new List<string>();
+        foreach (var directory in GetTimetableDirectories(mapDirectory))
+        {
+            foreach (var path in EnumerateTripFiles(directory))
+            {
+                if (!TryReadTripHeader(
+                        path,
+                        out var trackName,
+                        out var destination,
+                        out var line))
+                {
+                    continue;
+                }
+
+                var fileKey = Normalize(Path.GetFileNameWithoutExtension(path));
+                var trackKey = Normalize(trackName);
+                var tripDestinationKey = Normalize(destination);
+                var tripLineKey = Normalize(line);
+
+                if (lineKey.Length > 0 && tripLineKey != lineKey)
+                {
+                    continue;
+                }
+
+                var routeMatches =
+                    routeKey.Length > 0 &&
+                    (fileKey == routeKey ||
+                     trackKey == routeKey ||
+                     tripDestinationKey == routeKey);
+                var destinationMatches =
+                    destinationKey.Length > 0 &&
+                    (tripDestinationKey == destinationKey ||
+                     fileKey == destinationKey);
+
+                if (routeMatches || destinationMatches)
+                {
+                    return path;
+                }
+
+                if (lineKey.Length > 0)
+                {
+                    lineOnlyMatches.Add(path);
+                }
+            }
+        }
+
+        var distinctLineOnly = lineOnlyMatches
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(2)
+            .ToArray();
+        return distinctLineOnly.Length == 1
+            ? distinctLineOnly[0]
+            : null;
+    }
+
+    private static IEnumerable<string> EnumerateTripFiles(string directory)
+    {
+        try
+        {
+            return Directory
+                .EnumerateFiles(directory, "*.ttp", SearchOption.TopDirectoryOnly)
+                .ToArray();
+        }
+        catch (IOException)
+        {
+            return Array.Empty<string>();
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Array.Empty<string>();
+        }
+    }
+
+    private static bool TryReadTripHeader(
+        string path,
+        out string trackName,
+        out string destination,
+        out string line)
+    {
+        trackName = string.Empty;
+        destination = string.Empty;
+        line = string.Empty;
+
+        var lines = File.ReadAllLines(path);
+        for (var index = 0; index + 3 < lines.Length; index++)
+        {
+            if (!string.Equals(
+                    lines[index].Trim(),
+                    "[trip]",
+                    StringComparison.OrdinalIgnoreCase))
             {
                 continue;
             }
 
-            previousGrid = grid;
-            points.Add(new OmsiRouteTracePoint(
-                entry.GridX,
-                entry.GridY,
-                tileSize / 2d,
-                tileSize / 2d));
+            trackName = lines[index + 1].Trim();
+            destination = lines[index + 2].Trim();
+            line = lines[index + 3].Trim();
+            return true;
         }
 
-        return points;
+        return false;
+    }
+
+    private static string? ReadTripTrackName(string tripPath)
+    {
+        return TryReadTripHeader(
+            tripPath,
+            out var trackName,
+            out _,
+            out _)
+            ? trackName
+            : null;
+    }
+
+    private static IReadOnlyList<int> ReadTripStationIds(string tripPath)
+    {
+        var result = new List<int>();
+        var lines = File.ReadAllLines(tripPath);
+
+        for (var index = 0; index + 1 < lines.Length; index++)
+        {
+            if (!string.Equals(
+                    lines[index].Trim(),
+                    "[station_typ2]",
+                    StringComparison.OrdinalIgnoreCase) ||
+                !TryParseInteger(lines[index + 1], out var stationId))
+            {
+                continue;
+            }
+
+            if (result.Count == 0 || result[^1] != stationId)
+            {
+                result.Add(stationId);
+            }
+        }
+
+        return result;
+    }
+
+    private static IReadOnlyList<OmsiRouteTrackEntry> ReadStationLinkEntries(
+        string mapDirectory,
+        string tripPath,
+        IReadOnlyDictionary<int, (int GridX, int GridY)> tileCatalog)
+    {
+        var stationIds = ReadTripStationIds(tripPath);
+        if (stationIds.Count < 2)
+        {
+            return Array.Empty<OmsiRouteTrackEntry>();
+        }
+
+        var directories = new List<string>();
+        var baseDirectory = Path.Combine(mapDirectory, "TTData");
+        if (Directory.Exists(baseDirectory))
+        {
+            directories.Add(baseDirectory);
+        }
+
+        var tripDirectory = Path.GetDirectoryName(tripPath);
+        if (!string.IsNullOrWhiteSpace(tripDirectory) &&
+            Directory.Exists(tripDirectory) &&
+            !directories.Contains(
+                tripDirectory,
+                StringComparer.OrdinalIgnoreCase))
+        {
+            directories.Add(tripDirectory);
+        }
+
+        var links = new Dictionary<
+            (int FromId, int ToId),
+            List<OmsiRouteTrackEntry>>();
+
+        foreach (var directory in directories)
+        {
+            var path = Path.Combine(directory, "StnLinks.cfg");
+            if (!File.Exists(path))
+            {
+                continue;
+            }
+
+            ReadStationLinksFile(path, tileCatalog, links);
+        }
+
+        var result = new List<OmsiRouteTrackEntry>();
+        for (var index = 1; index < stationIds.Count; index++)
+        {
+            var key = (
+                FromId: stationIds[index - 1],
+                ToId: stationIds[index]);
+            if (!links.TryGetValue(key, out var linkEntries))
+            {
+                continue;
+            }
+
+            foreach (var entry in linkEntries)
+            {
+                if (result.Count > 0)
+                {
+                    var previous = result[^1];
+                    if (previous.ObjectId == entry.ObjectId &&
+                        previous.PathId == entry.PathId &&
+                        previous.GridX == entry.GridX &&
+                        previous.GridY == entry.GridY)
+                    {
+                        continue;
+                    }
+                }
+
+                result.Add(entry);
+            }
+        }
+
+        return result;
+    }
+
+    private static void ReadStationLinksFile(
+        string path,
+        IReadOnlyDictionary<int, (int GridX, int GridY)> tileCatalog,
+        IDictionary<(int FromId, int ToId), List<OmsiRouteTrackEntry>> links)
+    {
+        var lines = File.ReadAllLines(path);
+        (int FromId, int ToId)? currentLink = null;
+
+        for (var index = 0; index < lines.Length; index++)
+        {
+            var token = lines[index].Trim();
+            if (string.Equals(
+                    token,
+                    "[StnLink]",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                currentLink = null;
+                if (index + 3 >= lines.Length ||
+                    !TryParseInteger(lines[index + 2], out var fromId) ||
+                    !TryParseInteger(lines[index + 3], out var toId))
+                {
+                    continue;
+                }
+
+                currentLink = (fromId, toId);
+                // Chrono TTData replaces a station link with the same endpoints.
+                links[currentLink.Value] = new List<OmsiRouteTrackEntry>();
+                continue;
+            }
+
+            if (!string.Equals(
+                    token,
+                    "[StnLink_entry]",
+                    StringComparison.OrdinalIgnoreCase) ||
+                currentLink is null ||
+                index + 4 >= lines.Length ||
+                !TryParseInteger(lines[index + 1], out var objectId) ||
+                !TryParseInteger(lines[index + 2], out var pathId) ||
+                !TryParseInteger(lines[index + 3], out var tileIndex) ||
+                !tileCatalog.TryGetValue(tileIndex, out var grid))
+            {
+                continue;
+            }
+
+            var pathLength = 0d;
+            double.TryParse(
+                lines[index + 4].Trim(),
+                NumberStyles.Float,
+                CultureInfo.InvariantCulture,
+                out pathLength);
+
+            links[currentLink.Value].Add(
+                new OmsiRouteTrackEntry(
+                    objectId,
+                    pathId,
+                    grid.GridX,
+                    grid.GridY,
+                    double.IsFinite(pathLength) && pathLength > 0d
+                        ? pathLength
+                        : 0d));
+        }
+    }
+
+    private static bool TryParseInteger(string value, out int result)
+    {
+        var trimmed = value.Trim();
+        if (int.TryParse(
+                trimmed,
+                NumberStyles.Integer,
+                CultureInfo.InvariantCulture,
+                out result))
+        {
+            return true;
+        }
+
+        if (double.TryParse(
+                trimmed,
+                NumberStyles.Float,
+                CultureInfo.InvariantCulture,
+                out var numeric) &&
+            double.IsFinite(numeric) &&
+            numeric >= int.MinValue &&
+            numeric <= int.MaxValue)
+        {
+            var rounded = Math.Round(numeric);
+            if (Math.Abs(numeric - rounded) <= 0.001d)
+            {
+                result = (int)rounded;
+                return true;
+            }
+        }
+
+        result = 0;
+        return false;
     }
 
     private static string? FindTrackPath(string mapDirectory, string? activeTrackName)
@@ -373,6 +784,7 @@ public static class OmsiRouteTraceReader
         var normalizedLine = Normalize(activeLine ?? string.Empty);
         var normalizedTarget = Normalize(activeTarget ?? string.Empty);
         var fallbackMatches = new List<string>();
+        var targetOnlyMatches = new List<string>();
 
         foreach (var directory in GetTimetableDirectories(mapDirectory))
         {
@@ -421,6 +833,11 @@ public static class OmsiRouteTraceReader
                             return trackName;
                         }
 
+                        if (targetMatches)
+                        {
+                            targetOnlyMatches.Add(trackName);
+                        }
+
                         if (lineMatches)
                         {
                             fallbackMatches.Add(trackName);
@@ -438,11 +855,21 @@ public static class OmsiRouteTraceReader
             }
         }
 
-        return fallbackMatches
+        var distinctTargetOnly = targetOnlyMatches
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Take(2)
-            .Count() == 1
-            ? fallbackMatches[0]
+            .ToArray();
+        if (distinctTargetOnly.Length == 1)
+        {
+            return distinctTargetOnly[0];
+        }
+
+        var distinctFallback = fallbackMatches
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(2)
+            .ToArray();
+        return distinctFallback.Length == 1
+            ? distinctFallback[0]
             : null;
     }
 

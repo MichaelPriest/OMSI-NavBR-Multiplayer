@@ -30,6 +30,12 @@ internal static class PhysicalVehicleLifecycleSupervisor
     private static int _resetRequested;
     private static int _randomBusControlProbeAttempted;
     private static long _internalCommandSequence;
+    private static readonly Dictionary<string, string> LastVarProbeKey =
+        new(StringComparer.OrdinalIgnoreCase);
+    private static readonly Dictionary<string, string> LastVarPinKey =
+        new(StringComparer.OrdinalIgnoreCase);
+    private static readonly Dictionary<string, string> LastVisualPinKey =
+        new(StringComparer.OrdinalIgnoreCase);
 
     public static int DesiredCount
     {
@@ -79,6 +85,21 @@ internal static class PhysicalVehicleLifecycleSupervisor
         }
 
         var instanceId = remoteState.PlayerId.Trim();
+        var explicitlyAdmitted =
+            !string.IsNullOrWhiteSpace(remoteState.VehicleInstanceId) &&
+            string.Equals(
+                remoteState.VehicleInstanceId.Trim(),
+                instanceId,
+                StringComparison.OrdinalIgnoreCase);
+        if (!explicitlyAdmitted)
+        {
+            // Raw service telemetry remains useful to RemoteVehicleRegistry,
+            // but only a state explicitly admitted by the room-bound openOMSI
+            // v6 path may touch native OMSI lifecycle state. SignalR sidecar
+            // frames never receive VehicleInstanceId and cannot move buses.
+            return;
+        }
+
         var normalized = NormalizeSpawn(remoteState with
         {
             Type = PluginBridgeProtocol.SpawnRemoteVehicle,
@@ -89,17 +110,28 @@ internal static class PhysicalVehicleLifecycleSupervisor
 
         lock (Sync)
         {
-            // The desktop coordinator is the admission authority for physical
-            // players (distance, compatibility and bounded player count). Once
-            // it has created the lifecycle entry, the raw state stream becomes
-            // the high-rate target feed. Never let a raw telemetry frame create
-            // a new physical intent on its own: otherwise a bus that the
-            // coordinator despawned for distance/load can immediately respawn
-            // here and the two controllers fight over lifecycle.
-            if (PendingRemovals.Contains(instanceId) ||
-                !Entries.TryGetValue(instanceId, out var entry))
+            // The room-bound openOMSI v6 stream is the admission authority for
+            // physical players. The plugin still enforces a usable native
+            // target and the bounded player count before creating a lifecycle
+            // entry. Raw RemoteVehicleState sidecar messages never carry
+            // VehicleInstanceId and therefore cannot auto-admit themselves.
+            if (PendingRemovals.Contains(instanceId))
             {
                 return;
+            }
+
+            if (!Entries.TryGetValue(instanceId, out var entry))
+            {
+                if (!HasUsablePhysicalTarget(normalized) ||
+                    Entries.Count >= MaxEntries)
+                {
+                    return;
+                }
+
+                entry = new LifecycleEntry(instanceId, normalized, now);
+                Entries.Add(instanceId, entry);
+                PluginLogWriter.Enqueue(
+                    $"physical-lifecycle stream-admit id={instanceId} vehicle={normalized.VehiclePath ?? "-"}");
             }
 
             // RemoteVehicleState is a high-rate mirror of the server payload.
@@ -356,6 +388,9 @@ internal static class PhysicalVehicleLifecycleSupervisor
         {
             Entries.Clear();
             PendingRemovals.Clear();
+            LastVarProbeKey.Clear();
+            LastVarPinKey.Clear();
+            LastVisualPinKey.Clear();
         }
 
         Interlocked.Exchange(ref _resetRequested, 0);
@@ -446,6 +481,9 @@ internal static class PhysicalVehicleLifecycleSupervisor
                              "active",
                              StringComparison.Ordinal))
                 {
+                    ProbeRemoteScriptVarBounds(entry.InstanceId, instance);
+                    PinRemoteVisualSyncVars(entry.InstanceId, instance);
+                    PinRemoteScriptVars(entry.InstanceId, instance);
                     if (now < entry.NextAttemptTickMs ||
                         !entry.HasPendingTargetUpdate ||
                         !TryBuildInternalUpdate(
@@ -663,6 +701,293 @@ internal static class PhysicalVehicleLifecycleSupervisor
             command.PlayerId ??
             string.Empty).Trim();
         return instanceId.Length is > 0 and <= 128;
+    }
+
+    private static void ProbeRemoteScriptVarBounds(
+        string instanceId,
+        PhysicalVehicleInstance instance)
+    {
+        if (!RemoteVehicleVarsRegistry.TryGet(
+                instanceId,
+                out var snapshot) ||
+            snapshot.VarTableHash is not uint varTableHash ||
+            snapshot.Floats.Count == 0)
+        {
+            return;
+        }
+
+        var count =
+            OmsiNativeInterop.TryGetRoadVehiclePublicVarCount(
+                instance.VehiclePointer);
+        if (count < 0)
+        {
+            return;
+        }
+
+        var maxId = snapshot.Floats.Keys.Max();
+        var available = snapshot.Floats.Keys.Count(id => id < count);
+        var compatible = available == snapshot.Floats.Count;
+        var key =
+            $"{varTableHash:X8}:{count}:{maxId}:{available}:{compatible}";
+        lock (Sync)
+        {
+            if (LastVarProbeKey.TryGetValue(instanceId, out var previous) &&
+                string.Equals(previous, key, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            LastVarProbeKey[instanceId] = key;
+        }
+
+        PluginLogWriter.Enqueue(
+            $"physical-vars-probe id={instanceId} " +
+            $"table={varTableHash:X8} publicVars={count} " +
+            $"maxRemoteId={maxId} availableVars={available} " +
+            $"totalVars={snapshot.Floats.Count} compatible={compatible}");
+    }
+
+    private static void PinRemoteScriptVars(
+        string instanceId,
+        PhysicalVehicleInstance instance)
+    {
+        if (!RemoteVehicleVarsRegistry.TryGet(
+                instanceId,
+                out var snapshot) ||
+            snapshot.VarTableHash is not uint varTableHash ||
+            snapshot.Floats.Count == 0)
+        {
+            return;
+        }
+
+        var smoothIds = snapshot.LampIds
+            .Concat(snapshot.SwitchIds)
+            .Concat(snapshot.ValueIds)
+            .Concat(snapshot.DoorIds)
+            .ToHashSet();
+        var scriptFloats = snapshot.Floats
+            .Where(pair => !smoothIds.Contains(pair.Key))
+            .Take(256)
+            .ToArray();
+
+        var count =
+            OmsiNativeInterop.TryGetRoadVehiclePublicVarCount(
+                instance.VehiclePointer);
+        // Some vehicles expose fewer live slots while their script initializes.
+        // Only apply verified in-bounds PublicVars; one unavailable slot must
+        // not prevent valid indicators and controls from synchronizing.
+        if (count <= 0)
+        {
+            return;
+        }
+
+        var availableFloats = scriptFloats
+            .Where(pair => pair.Key < count)
+            .ToArray();
+        var skipped = scriptFloats.Length - availableFloats.Length;
+        if (availableFloats.Length == 0)
+        {
+            return;
+        }
+
+        var applied = 0;
+        foreach (var pair in availableFloats)
+        {
+            if (!float.IsFinite(pair.Value) ||
+                pair.Key >= count ||
+                !OmsiNativeInterop.TryWriteRoadVehiclePublicVar(
+                    instance.VehiclePointer,
+                    pair.Key,
+                    pair.Value))
+            {
+                var failedKey =
+                    $"{varTableHash:X8}:fail:{pair.Key}:{count}";
+                lock (Sync)
+                {
+                    if (!LastVarPinKey.TryGetValue(
+                            instanceId,
+                            out var previous) ||
+                        !string.Equals(
+                            previous,
+                            failedKey,
+                            StringComparison.Ordinal))
+                    {
+                        LastVarPinKey[instanceId] = failedKey;
+                        PluginLogWriter.Enqueue(
+                            $"physical-vars-pin id={instanceId} " +
+                            $"table={varTableHash:X8} status=write-failed " +
+                            $"var={pair.Key} publicVars={count}");
+                    }
+                }
+                return;
+            }
+
+            applied++;
+        }
+
+        // Remote StringVars remain receive/read-only for now. They are kept
+        // in RemoteVehicleVarsRegistry so the protocol path can be observed,
+        // but are deliberately not written into OMSI's Delphi UnicodeString
+        // slots until a verified simulator/RTL assignment routine owns the
+        // allocation and refcount lifecycle.
+        var receivedStrings = snapshot.Strings.Count;
+
+        var successKey =
+            $"{varTableHash:X8}:ok:{count}:{applied}:skipped={skipped}:strings-readonly={receivedStrings}";
+        lock (Sync)
+        {
+            if (LastVarPinKey.TryGetValue(
+                    instanceId,
+                    out var previous) &&
+                string.Equals(
+                    previous,
+                    successKey,
+                    StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            LastVarPinKey[instanceId] = successKey;
+        }
+
+        PluginLogWriter.Enqueue(
+            $"physical-vars-pin id={instanceId} " +
+            $"table={varTableHash:X8} status=active " +
+            $"vars={applied} skippedOutOfRange={skipped} publicVars={count} " +
+            $"stringsReceived={receivedStrings} stringMode=read-only");
+    }
+
+    private static void PinRemoteVisualSyncVars(
+        string instanceId,
+        PhysicalVehicleInstance instance)
+    {
+        if (!RemoteVehicleVarsRegistry.TryGet(
+                instanceId,
+                out var snapshot) ||
+            snapshot.SyncTableHash is not uint syncTableHash)
+        {
+            return;
+        }
+
+        var total =
+            snapshot.Lamps.Length +
+            snapshot.Switches.Length +
+            snapshot.Values.Length +
+            snapshot.Doors.Length;
+        if (total == 0)
+        {
+            return;
+        }
+
+        var count =
+            OmsiNativeInterop.TryGetRoadVehiclePublicVarCount(
+                instance.VehiclePointer);
+        if (count <= 0)
+        {
+            return;
+        }
+
+        bool Apply(
+            IReadOnlyList<ushort> ids,
+            IReadOnlyList<float> values,
+            string kind,
+            ref int applied)
+        {
+            if (ids.Count != values.Count)
+            {
+                return false;
+            }
+
+            for (var i = 0; i < ids.Count; i++)
+            {
+                var id = ids[i];
+                var value = values[i];
+                if (id >= count ||
+                    !float.IsFinite(value) ||
+                    !OmsiNativeInterop.TryWriteRoadVehiclePublicVar(
+                        instance.VehiclePointer,
+                        id,
+                        value))
+                {
+                    var failedKey =
+                        $"{syncTableHash:X8}:{kind}:fail:{id}:{count}";
+                    lock (Sync)
+                    {
+                        if (!LastVisualPinKey.TryGetValue(
+                                instanceId,
+                                out var previous) ||
+                            !string.Equals(
+                                previous,
+                                failedKey,
+                                StringComparison.Ordinal))
+                        {
+                            LastVisualPinKey[instanceId] =
+                                failedKey;
+                            PluginLogWriter.Enqueue(
+                                $"physical-visual-pin id={instanceId} " +
+                                $"table={syncTableHash:X8} " +
+                                $"status=write-failed kind={kind} " +
+                                $"var={id} publicVars={count}");
+                        }
+                    }
+
+                    return false;
+                }
+
+                applied++;
+            }
+
+            return true;
+        }
+
+        var applied = 0;
+        if (!Apply(
+                snapshot.LampIds,
+                snapshot.Lamps,
+                "lamp",
+                ref applied) ||
+            !Apply(
+                snapshot.SwitchIds,
+                snapshot.Switches,
+                "switch",
+                ref applied) ||
+            !Apply(
+                snapshot.ValueIds,
+                snapshot.Values,
+                "value",
+                ref applied) ||
+            !Apply(
+                snapshot.DoorIds,
+                snapshot.Doors,
+                "door",
+                ref applied))
+        {
+            return;
+        }
+
+        var successKey =
+            $"{syncTableHash:X8}:ok:{count}:{applied}";
+        lock (Sync)
+        {
+            if (LastVisualPinKey.TryGetValue(
+                    instanceId,
+                    out var previous) &&
+                string.Equals(
+                    previous,
+                    successKey,
+                    StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            LastVisualPinKey[instanceId] =
+                successKey;
+        }
+
+        PluginLogWriter.Enqueue(
+            $"physical-visual-pin id={instanceId} " +
+            $"table={syncTableHash:X8} status=active " +
+            $"vars={applied} publicVars={count}");
     }
 
     private static void RunRandomBusControlProbe(string instanceId)

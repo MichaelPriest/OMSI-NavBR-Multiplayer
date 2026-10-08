@@ -23,6 +23,16 @@ public partial class HudOverlayWindow
     private const int VkN = 0x4E;
     private const int VkEscape = 0x1B;
 
+    private const int OmsiScanH = 35;
+    private const int OmsiScanK = 37;
+    private const int OmsiScanN = 49;
+    private const int OmsiScanF6 = 64;
+    private const int OmsiScanF7 = 65;
+    private const int OmsiScanF8 = 66;
+    private const int NavBrCtrlAltModifier =
+        NavBRHotkeyCatalog.OmsiCtrlModifier |
+        NavBRHotkeyCatalog.OmsiAltModifier;
+
     private NavBRHotkeyDefinition _chatHotkey = NavBRHotkeyCatalog.Resolve(
         NavBRHotkeyCatalog.DefaultChatHotkey,
         NavBRHotkeyCatalog.DefaultChatHotkey);
@@ -38,6 +48,12 @@ public partial class HudOverlayWindow
     private DateTimeOffset _nextOmsiHotkeyCheckUtc = DateTimeOffset.MinValue;
     private IReadOnlyList<string> _chatConflictEvents = Array.Empty<string>();
     private IReadOnlyList<string> _voiceConflictEvents = Array.Empty<string>();
+    private bool _telematrixConfigHotkeyAvailable;
+    private bool _inGamePanelHotkeyAvailable;
+    private bool _hudToggleHotkeyAvailable;
+    private bool _telematrixToggleHotkeyAvailable;
+    private bool _telematrixThemeHotkeyAvailable;
+    private bool _telematrixSizeHotkeyAvailable;
 
     public void ConfigureHotkeys(string? chatHotkey, string? voiceHotkey)
     {
@@ -124,6 +140,19 @@ public partial class HudOverlayWindow
         _chatHotkeyAvailable = result.ConfigFound && _hotkeysDistinct && _chatConflictEvents.Count == 0;
         _voiceHotkeyAvailable = result.ConfigFound && _hotkeysDistinct && _voiceConflictEvents.Count == 0;
 
+        _telematrixConfigHotkeyAvailable =
+            result.ConfigFound && !result.IsInUse(OmsiScanK, 0);
+        _inGamePanelHotkeyAvailable =
+            result.ConfigFound && !result.IsInUse(OmsiScanN, NavBrCtrlAltModifier);
+        _hudToggleHotkeyAvailable =
+            result.ConfigFound && !result.IsInUse(OmsiScanH, NavBrCtrlAltModifier);
+        _telematrixToggleHotkeyAvailable =
+            result.ConfigFound && !result.IsInUse(OmsiScanF6, NavBrCtrlAltModifier);
+        _telematrixThemeHotkeyAvailable =
+            result.ConfigFound && !result.IsInUse(OmsiScanF7, NavBrCtrlAltModifier);
+        _telematrixSizeHotkeyAvailable =
+            result.ConfigFound && !result.IsInUse(OmsiScanF8, NavBrCtrlAltModifier);
+
         if (!_voiceHotkeyAvailable && _localPushToTalk)
         {
             SetLocalPushToTalk(false);
@@ -137,6 +166,12 @@ public partial class HudOverlayWindow
         _omsiHotkeyConfigVerified = false;
         _chatConflictEvents = Array.Empty<string>();
         _voiceConflictEvents = Array.Empty<string>();
+        _telematrixConfigHotkeyAvailable = false;
+        _inGamePanelHotkeyAvailable = false;
+        _hudToggleHotkeyAvailable = false;
+        _telematrixToggleHotkeyAvailable = false;
+        _telematrixThemeHotkeyAvailable = false;
+        _telematrixSizeHotkeyAvailable = false;
     }
 
     private string BuildHotkeyConflictTooltip()
@@ -240,13 +275,14 @@ public partial class HudOverlayWindow
         if (isDown &&
             virtualKey == VkN &&
             _inGamePanelOpen &&
+            _inGamePanelHotkeyAvailable &&
             IsCtrlAltChordActive())
         {
             CloseInGamePanel();
             return;
         }
 
-        if (isDown && virtualKey == VkK)
+        if (isDown && virtualKey == VkK && _telematrixConfigHotkeyAvailable)
         {
             if (TelematrixConfigPanel.Visibility == System.Windows.Visibility.Visible)
             {
@@ -269,31 +305,31 @@ public partial class HudOverlayWindow
             IsOmsiForeground() &&
             IsCtrlAltChordActive())
         {
-            if (virtualKey == VkN)
+            if (virtualKey == VkN && _inGamePanelHotkeyAvailable)
             {
                 ToggleInGamePanel();
                 return;
             }
 
-            if (virtualKey == VkH)
+            if (virtualKey == VkH && _hudToggleHotkeyAvailable)
             {
                 ToggleHudEnabled();
                 return;
             }
 
-            if (virtualKey == VkF6)
+            if (virtualKey == VkF6 && _telematrixToggleHotkeyAvailable)
             {
                 ToggleTelematrixWidget();
                 return;
             }
 
-            if (virtualKey == VkF7)
+            if (virtualKey == VkF7 && _telematrixThemeHotkeyAvailable)
             {
                 CycleTelematrixTheme();
                 return;
             }
 
-            if (virtualKey == VkF8)
+            if (virtualKey == VkF8 && _telematrixSizeHotkeyAvailable)
             {
                 CycleTelematrixSize();
                 return;
@@ -359,6 +395,13 @@ public partial class HudOverlayWindow
             _pressedKeys.Contains(VkRightControl))
         {
             mask |= NavBRHotkeyCatalog.OmsiCtrlModifier;
+        }
+
+        if (_pressedKeys.Contains(VkMenu) ||
+            _pressedKeys.Contains(VkLeftMenu) ||
+            _pressedKeys.Contains(VkRightMenu))
+        {
+            mask |= NavBRHotkeyCatalog.OmsiAltModifier;
         }
 
         return mask;

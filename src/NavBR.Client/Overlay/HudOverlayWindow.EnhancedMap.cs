@@ -9,7 +9,11 @@ namespace NavBR.Client.Overlay;
 public partial class HudOverlayWindow
 {
     private string? _routeTraceCacheKey;
+    private DateTimeOffset _routeTraceLastAttemptUtc = DateTimeOffset.MinValue;
     private IReadOnlyList<OmsiRouteTracePoint> _routeTracePoints = Array.Empty<OmsiRouteTracePoint>();
+    private bool _routeTraceHasDetailedGeometry;
+    private OmsiPhysicalRoadAnchorResolver? _gpsRoadAnchorResolver;
+    private string? _gpsRoadAnchorInstallRoot;
     private readonly OmsiRouteRejoinPathfinder _hudRouteRejoinPathfinder = new();
     private bool _enhancedMapRenderingStarted;
 
@@ -39,17 +43,42 @@ public partial class HudOverlayWindow
         var layout = _mapLayout;
         var map = _activeMap;
 
-        MiniMapImage.Opacity = _hudSettings.HudMapOpacity;
+        ApplyOpenOmsiNavigatorOpacity(_hudSettings.HudMapOpacity);
         UpdateTripInfo(telemetry, map);
+
+        var hasRoadmapSurface =
+            map is not null &&
+            bitmap is not null &&
+            layout is not null;
+        if (!_immersiveOperationActive)
+        {
+            var hudMode =
+                _hudSettings.HudSelectionMode?.Trim().ToLowerInvariant() ?? "all";
+            var singleWidget =
+                _hudSettings.HudSingleWidget?.Trim().ToLowerInvariant() ?? "dashboard";
+            var mapSelected =
+                hudMode == "all" ||
+                hudMode == "single" && singleWidget == "minimap" ||
+                hudMode == "selected" && _hudSettings.DashboardShowMinimap;
+
+            MiniMapHudPanel.Visibility = hasRoadmapSurface && mapSelected
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+        }
 
         if (telemetry is not null)
         {
             LocalMarkerRotation.Angle = 0d;
-            MiniMapHeadingRotation.Angle = NormalizeAngle(-telemetry.HeadingDegrees);
+            var smoothedHeading =
+                GetSmoothedHudHeading(telemetry.HeadingDegrees);
+            MiniMapHeadingRotation.Angle =
+                NormalizeAngle(-smoothedHeading);
         }
         else
         {
+            _renderedHudHeadingDegrees = double.NaN;
             MiniMapHeadingRotation.Angle = 0d;
+            LocalMarkerRotation.Angle = 0d;
         }
 
         var zoom = GetSmoothedHudZoom(telemetry);
@@ -74,10 +103,13 @@ public partial class HudOverlayWindow
             bitmap is null ||
             layout is null ||
             map is null ||
-            telemetry.GridX is not int gridX ||
-            telemetry.GridY is not int gridY ||
-            telemetry.TileX is not double tileX ||
-            telemetry.TileY is not double tileY ||
+            !TryGetGpsDisplayAnchor(
+                telemetry,
+                map,
+                out var gridX,
+                out var gridY,
+                out var tileX,
+                out var tileY) ||
             !RoadmapTransform.TryToPixel(
                 layout,
                 bitmap.PixelWidth,
@@ -111,8 +143,22 @@ public partial class HudOverlayWindow
             localPixelX,
             localPixelY);
 
+        // Use the exact same projected road anchor for presentation,
+        // navigation progress and rejoin routing. Previously the map was
+        // centred on the snapped lane while NavBRNavigationEngine and the
+        // rejoin pathfinder still consumed the raw telemetry grid position,
+        // which could make the player icon appear on a road while the route
+        // logic considered the bus somewhere else.
+        var navigationTelemetry = telemetry with
+        {
+            GridX = gridX,
+            GridY = gridY,
+            TileX = tileX,
+            TileY = tileY
+        };
+
         var navigation = NavBRNavigationEngine.Evaluate(
-            telemetry,
+            navigationTelemetry,
             layout,
             _routeTracePoints,
             _busStops);
@@ -125,7 +171,7 @@ public partial class HudOverlayWindow
             rejoinPath = _hudRouteRejoinPathfinder.TryFind(
                 map,
                 layout,
-                telemetry,
+                navigationTelemetry,
                 _routeTracePoints);
         }
 
@@ -139,6 +185,155 @@ public partial class HudOverlayWindow
 
         UpdateNavigationSummary(navigation, map);
         UpdateTurnGuidance(navigation, rejoinPath);
+    }
+
+    private void ApplyOpenOmsiNavigatorOpacity(double opacity)
+    {
+        opacity = Math.Clamp(opacity, 0.05d, 1d);
+        MiniMapImage.Opacity = opacity;
+
+        // openOMSI-style navigator: the world stays visible through the panel,
+        // while route/markers remain crisp and independent from the map opacity.
+        var panelAlpha = (byte)Math.Round(255d * Math.Clamp(0.06d + opacity * 0.34d, 0.08d, 0.46d));
+        var canvasAlpha = (byte)Math.Round(255d * Math.Clamp(0.01d + opacity * 0.08d, 0.01d, 0.10d));
+        MiniMapFrame.Background = new SolidColorBrush(
+            Color.FromArgb(panelAlpha, 10, 10, 10));
+        MiniMapCanvas.Background = new SolidColorBrush(
+            Color.FromArgb(canvasAlpha, 10, 10, 10));
+    }
+
+    private bool TryGetGpsDisplayAnchor(
+        VehicleTelemetry telemetry,
+        OmsiMapInfo map,
+        out int gridX,
+        out int gridY,
+        out double tileX,
+        out double tileY)
+    {
+        gridX = 0;
+        gridY = 0;
+        tileX = 0d;
+        tileY = 0d;
+
+        // Prefer the physical OMSI Kachel pose when the bridge provides it.
+        // GridX/TileX can be a compatibility/navigation projection; using it
+        // as the display fallback is what made the marker drift to a parallel
+        // or neighbouring road whenever a lane snap was temporarily unavailable.
+        var hasGridTelemetry = false;
+        if (telemetry.PhysicalGridX is int physicalGridX &&
+            telemetry.PhysicalGridY is int physicalGridY &&
+            telemetry.LocalX is double physicalLocalX &&
+            telemetry.LocalZ is double physicalLocalZ)
+        {
+            hasGridTelemetry = true;
+            gridX = physicalGridX;
+            gridY = physicalGridY;
+            tileX = physicalLocalX;
+            tileY = physicalLocalZ;
+        }
+        else if (telemetry.GridX is int rawGridX &&
+                 telemetry.GridY is int rawGridY &&
+                 telemetry.TileX is double rawTileX &&
+                 telemetry.TileY is double rawTileY)
+        {
+            hasGridTelemetry = true;
+            gridX = rawGridX;
+            gridY = rawGridY;
+            tileX = rawTileX;
+            tileY = rawTileY;
+        }
+
+        var installRoot = ResolveOmsiInstallRoot(map.DirectoryPath);
+        if (string.IsNullOrWhiteSpace(installRoot))
+        {
+            return hasGridTelemetry;
+        }
+
+        if (_gpsRoadAnchorResolver is null ||
+            !string.Equals(
+                _gpsRoadAnchorInstallRoot,
+                installRoot,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            _gpsRoadAnchorInstallRoot = installRoot;
+            var capturedRoot = installRoot;
+            _gpsRoadAnchorResolver =
+                new OmsiPhysicalRoadAnchorResolver(() => capturedRoot);
+        }
+
+        var anchorTelemetry = telemetry;
+
+        // openOMSI exposes the live world pose even when a NavBR grid/tile pair
+        // is not available yet. Convert that real world position back into the
+        // OMSI Kachel before trying to snap to the lane network. This keeps the
+        // local marker functional instead of failing early and disappearing.
+        if (!hasGridTelemetry)
+        {
+            if (!_gpsRoadAnchorResolver.TryResolveOpenOmsiWorldAnchor(
+                    telemetry,
+                    out var worldAnchor))
+            {
+                return false;
+            }
+
+            gridX = worldAnchor.GridX;
+            gridY = worldAnchor.GridY;
+            tileX = worldAnchor.LocalX;
+            tileY = worldAnchor.LocalZ;
+
+            anchorTelemetry = telemetry with
+            {
+                GridX = gridX,
+                GridY = gridY,
+                TileX = tileX,
+                TileY = tileY,
+                PhysicalGridX = gridX,
+                PhysicalGridY = gridY,
+                LocalX = worldAnchor.LocalX,
+                LocalY = worldAnchor.LocalY,
+                LocalZ = worldAnchor.LocalZ
+            };
+        }
+
+        if (_gpsRoadAnchorResolver.TryResolveRoadAnchor(
+                anchorTelemetry,
+                out var roadAnchor) &&
+            roadAnchor.DistanceMeters <= 18d)
+        {
+            gridX = roadAnchor.GridX;
+            gridY = roadAnchor.GridY;
+            tileX = roadAnchor.LocalX;
+            tileY = roadAnchor.LocalZ;
+        }
+
+        return true;
+    }
+
+    private static string? ResolveOmsiInstallRoot(string? mapDirectory)
+    {
+        if (string.IsNullOrWhiteSpace(mapDirectory))
+        {
+            return null;
+        }
+
+        try
+        {
+            var map = new System.IO.DirectoryInfo(mapDirectory);
+            var maps = map.Parent;
+            if (maps is not null &&
+                string.Equals(
+                    maps.Name,
+                    "maps",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return maps.Parent?.FullName;
+            }
+        }
+        catch
+        {
+        }
+
+        return null;
     }
 
     private void UpdateTripInfo(VehicleTelemetry? telemetry, OmsiMapInfo? map)
@@ -180,6 +375,18 @@ public partial class HudOverlayWindow
             ? $"{nextStopLabel}: —"
             : $"{nextStopLabel}: {telemetry.NextStopName}";
 
+        var hasTripInfo =
+            !string.IsNullOrWhiteSpace(telemetry?.Line) ||
+            !string.IsNullOrWhiteSpace(telemetry?.Route) ||
+            !string.IsNullOrWhiteSpace(telemetry?.DestinationName) ||
+            !string.IsNullOrWhiteSpace(telemetry?.NextStopName);
+        if (!_immersiveOperationActive)
+        {
+            TripInfoPanel.Visibility = hasTripInfo
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+        }
+
         if (map is null && telemetry is null)
         {
             MiniMapStatusText.Text = "NavBR";
@@ -192,6 +399,11 @@ public partial class HudOverlayWindow
         {
             MiniMapStatusText.Text = map.DisplayName;
             return;
+        }
+
+        if (!_immersiveOperationActive)
+        {
+            TripInfoPanel.Visibility = Visibility.Visible;
         }
 
         var remaining = FormatNavigationDistance(navigation.DistanceRemainingMeters);
@@ -217,13 +429,35 @@ public partial class HudOverlayWindow
             ? routeName
             : destinationName;
         var cacheKey = $"{map.DirectoryPath}|{lineName}|{routeName}|{destinationName}";
-        if (string.Equals(cacheKey, _routeTraceCacheKey, StringComparison.OrdinalIgnoreCase))
+        var sameKey = string.Equals(
+            cacheKey,
+            _routeTraceCacheKey,
+            StringComparison.OrdinalIgnoreCase);
+        if (sameKey && _routeTracePoints.Count >= 2)
+        {
+            return;
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        if (sameKey &&
+            now - _routeTraceLastAttemptUtc < TimeSpan.FromSeconds(2))
         {
             return;
         }
 
         _routeTraceCacheKey = cacheKey;
-        _routeTracePoints = OmsiRouteTraceReader.TryRead(map, layout, lookupTarget, lineName);
+        _routeTraceLastAttemptUtc = now;
+        _routeTracePoints = OmsiRouteTraceReader.TryRead(
+            map,
+            layout,
+            lookupTarget,
+            lineName,
+            destinationName);
+        _routeTraceHasDetailedGeometry =
+            string.Equals(
+                OmsiRouteTraceReader.LastDiagnostics?.Mode,
+                "detailed",
+                StringComparison.OrdinalIgnoreCase);
     }
 
     private void RenderRouteTrace(
@@ -233,7 +467,8 @@ public partial class HudOverlayWindow
         double localPixelX,
         double localPixelY)
     {
-        if (_routeTracePoints.Count < 2)
+        if (!_hudSettings.MapShowRoute ||
+            _routeTracePoints.Count < 2)
         {
             ActiveRoutePolyline.Visibility = Visibility.Collapsed;
             ActiveRouteShadow.Visibility = Visibility.Collapsed;
@@ -288,7 +523,8 @@ public partial class HudOverlayWindow
         double localPixelX,
         double localPixelY)
     {
-        if (rejoinPath is null ||
+        if (!_hudSettings.MapShowRejoin ||
+            rejoinPath is null ||
             rejoinPath.Points.Count < 2 ||
             layout.TileSize is not double tileSize ||
             layout.WorldWidth is not double worldWidth ||
@@ -342,19 +578,27 @@ public partial class HudOverlayWindow
         if (!navigation.RouteAvailable)
         {
             TurnPanel.Visibility = Visibility.Collapsed;
+            MiniMapTurnOverlay.Visibility = Visibility.Collapsed;
             return;
         }
 
         if (navigation.Maneuver == NavBRManeuverKind.RejoinRoute)
         {
+            var rejoinDistance =
+                rejoinPath?.DistanceMeters ??
+                navigation.OffRouteDistanceMeters;
             TurnArrowText.Text = "↺";
             TurnInstructionText.Text = NavigationText(
-                $"Fora da rota • retorne em {FormatNavigationDistance(rejoinPath?.DistanceMeters ?? navigation.OffRouteDistanceMeters)}",
-                $"Off route • rejoin in {FormatNavigationDistance(rejoinPath?.DistanceMeters ?? navigation.OffRouteDistanceMeters)}",
-                $"Fuera de ruta • vuelva en {FormatNavigationDistance(rejoinPath?.DistanceMeters ?? navigation.OffRouteDistanceMeters)}",
-                $"Route verlassen • zurück in {FormatNavigationDistance(rejoinPath?.DistanceMeters ?? navigation.OffRouteDistanceMeters)}",
-                $"Hors itinéraire • retour dans {FormatNavigationDistance(rejoinPath?.DistanceMeters ?? navigation.OffRouteDistanceMeters)}");
+                $"Fora da rota • retorne em {FormatNavigationDistance(rejoinDistance)}",
+                $"Off route • rejoin in {FormatNavigationDistance(rejoinDistance)}",
+                $"Fuera de ruta • vuelva en {FormatNavigationDistance(rejoinDistance)}",
+                $"Route verlassen • zurück in {FormatNavigationDistance(rejoinDistance)}",
+                $"Hors itinéraire • retour dans {FormatNavigationDistance(rejoinDistance)}");
+            MiniMapTurnArrowText.Text = "↺";
+            MiniMapTurnInstructionText.Text =
+                FormatNavigationDistance(rejoinDistance);
             TurnPanel.Visibility = Visibility.Visible;
+            MiniMapTurnOverlay.Visibility = Visibility.Visible;
             return;
         }
 
@@ -362,10 +606,11 @@ public partial class HudOverlayWindow
             navigation.DistanceToManeuverMeters is not double distance)
         {
             TurnPanel.Visibility = Visibility.Collapsed;
+            MiniMapTurnOverlay.Visibility = Visibility.Collapsed;
             return;
         }
 
-        TurnArrowText.Text = navigation.Maneuver switch
+        var arrow = navigation.Maneuver switch
         {
             NavBRManeuverKind.SharpLeft => "←",
             NavBRManeuverKind.Left => "←",
@@ -375,11 +620,16 @@ public partial class HudOverlayWindow
             NavBRManeuverKind.SlightRight => "↗",
             _ => "↑"
         };
+        TurnArrowText.Text = arrow;
+        MiniMapTurnArrowText.Text = arrow;
 
         var right = navigation.Maneuver is NavBRManeuverKind.SlightRight or NavBRManeuverKind.Right or NavBRManeuverKind.SharpRight;
         var strong = navigation.Maneuver is NavBRManeuverKind.Left or NavBRManeuverKind.Right or NavBRManeuverKind.SharpLeft or NavBRManeuverKind.SharpRight;
         TurnInstructionText.Text = BuildTurnInstruction(right, strong, Math.Max(10, (int)Math.Round(distance / 10d) * 10));
+        MiniMapTurnInstructionText.Text =
+            FormatNavigationDistance(distance);
         TurnPanel.Visibility = Visibility.Visible;
+        MiniMapTurnOverlay.Visibility = Visibility.Visible;
     }
 
     private static string FormatNavigationDistance(double meters)

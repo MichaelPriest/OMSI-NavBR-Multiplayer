@@ -1,6 +1,8 @@
+using System.Numerics;
 using System.Windows;
 using System.Windows.Threading;
 using NavBR.Client.Maps;
+using NavBR.Client.Telemetry;
 using NavBR.Client.PluginBridge;
 using NavBR.Shared.Multiplayer;
 using NavBR.Shared.PluginBridge;
@@ -36,6 +38,7 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
     private const int VkLeft = 0x25;
     private const int VkRight = 0x27;
     private const int VkE = 0x45;
+    private const int VkG = 0x47;
     private const int VkW = 0x57;
     private const int VkA = 0x41;
     private const int VkS = 0x53;
@@ -45,12 +48,12 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
     private const int VkRightShift = 0xA1;
 
     private const double WalkSpeedMps = 1.45d;
-    private const double RunSpeedMps = 3.25d;
-    private const double StandingTurnSpeedDegreesPerSecond = 120d;
-    private const double MovingTurnSpeedDegreesPerSecond = 96d;
-    private const double MovementResponsePerSecond = 9.5d;
-    private const double AirControlResponsePerSecond = 2.0d;
-    private const double JumpImpulseMps = 3.65d;
+    private const double RunSpeedMps = 4.3d;
+    private const double StandingTurnSpeedDegreesPerSecond = 110d;
+    private const double MovingTurnSpeedDegreesPerSecond = 220d;
+    private const double MovementResponsePerSecond = 7.0d;
+    private const double AirControlResponsePerSecond = 1.0d;
+    private const double JumpImpulseMps = 4.0d;
     private const double GravityMps2 = 9.81d;
     private const double JumpLandingToleranceMeters = 0.08d;
     private const double MaxDistanceFromBusMeters = 85d;
@@ -63,6 +66,7 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
     private readonly Func<VehicleTelemetry?> _telemetrySource;
     private readonly Func<OmsiMapInfo?> _activeMapSource;
     private readonly Func<string?> _mapKeySource;
+    private readonly Func<OmsiCameraProjectionSnapshot?> _cameraProjectionSource;
     private readonly DispatcherTimer _timer;
     private readonly object _inputSync = new();
     private readonly HashSet<int> _pressedKeys = [];
@@ -99,6 +103,8 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
     private bool _jumpRequested;
     private bool _jumpActive;
     private bool _focusStopApplied;
+    private bool _freeRoamEnabled;
+    private bool _cameraRelativeMovementActive;
 
     public event Action<RoleplayCharacterState?>? StateChanged;
     public event Action<RoleplayCharacterState>? NetworkStateReady;
@@ -107,11 +113,16 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
     public RoleplayCharacterController(
         Func<VehicleTelemetry?> telemetrySource,
         Func<OmsiMapInfo?> activeMapSource,
-        Func<string?> mapKeySource)
+        Func<string?> mapKeySource,
+        Func<OmsiCameraProjectionSnapshot?>? cameraProjectionSource = null)
     {
         _telemetrySource = telemetrySource;
         _activeMapSource = activeMapSource;
         _mapKeySource = mapKeySource;
+        _cameraProjectionSource =
+            cameraProjectionSource ?? (() => null);
+        _freeRoamEnabled =
+            MultiplayerSettingsStore.Load().RoleplayFreeRoamEnabled;
 
         _timer = new DispatcherTimer(DispatcherPriority.Input)
         {
@@ -122,6 +133,17 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
 
     public bool IsActive => _state?.IsActive == true;
     public bool IsGroundFollowing => _groundFollowing;
+    public bool CameraRelativeMovementActive =>
+        _cameraRelativeMovementActive;
+    public bool FreeRoamEnabled => _freeRoamEnabled;
+
+    public void SetFreeRoamEnabled(bool enabled)
+    {
+        _freeRoamEnabled = enabled;
+        SetStatus(enabled
+            ? "roleplay-free-roam-enabled"
+            : "roleplay-free-roam-disabled");
+    }
     public double EnterBusRangeMeters => EnterBusDistanceMeters;
     public double InteractionRangeMeters => EnterBusDistanceMeters;
     public RoleplayCharacterState? CurrentState => _state;
@@ -509,7 +531,8 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
             IsActive: true,
             CharacterId: selected.Id,
             CharacterName: selected.DisplayName,
-            HumanIndex: result.CharacterHumanIndex);
+            HumanIndex: result.CharacterHumanIndex,
+            CourseDegrees: NormalizeHeading(heading));
 
         ResetNativeActivityObservation();
         UpdateNativeAnimationDiagnostics(result, commandedSpeedMps: 0d);
@@ -560,6 +583,7 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
             _jumpRequested = false;
             _jumpActive = false;
             _focusStopApplied = false;
+            _cameraRelativeMovementActive = false;
             _groundFollowing = false;
             _groundHeightCalibrated = false;
             _groundHeightOffset = 0d;
@@ -652,6 +676,21 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
             var selected = RoleplayCharacterSelectionStore.Get(mapKey);
             var telemetry = _telemetrySource();
             var map = _activeMapSource();
+
+            if (telemetry?.IsInGame != true ||
+                !IsSameRoleplayMap(current, telemetry, map))
+            {
+                await StopAsync("roleplay-session-ended");
+                return;
+            }
+
+            if (Application.Current is not App app ||
+                !app.PluginBridge.IsConnected)
+            {
+                await StopAsync("roleplay-plugin-disconnected");
+                return;
+            }
+
             if (selected is null ||
                 !string.Equals(selected.Id, current.CharacterId, StringComparison.OrdinalIgnoreCase))
             {
@@ -666,6 +705,7 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
                 _verticalVelocityMps = 0d;
                 _jumpRequested = false;
                 _jumpActive = false;
+                _cameraRelativeMovementActive = false;
                 _lastTickUtc = DateTimeOffset.UtcNow;
 
                 // Key-up messages may happen after OMSI loses focus and are then
@@ -784,8 +824,27 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
             var currentHorizontalSpeed = Math.Sqrt(
                 _movementVelocityX * _movementVelocityX +
                 _movementVelocityY * _movementVelocityY);
-            if (turnLeft ^ turnRight)
+            var hasCameraHeading = TryResolveCameraHeading(
+                _cameraProjectionSource(),
+                out var cameraHeading);
+            _cameraRelativeMovementActive = hasCameraHeading;
+
+            if (hasCameraHeading)
             {
+                // openOMSI's walker moves relative to where the camera looks
+                // and the body eases towards that yaw instead of snapping.
+                var turnSpeed = currentHorizontalSpeed > 0.3d
+                    ? MovingTurnSpeedDegreesPerSecond
+                    : StandingTurnSpeedDegreesPerSecond;
+                var delta = WrapSignedDegrees(cameraHeading - heading);
+                var maxStep = turnSpeed * deltaSeconds;
+                heading = NormalizeHeading(
+                    heading + Math.Clamp(delta, -maxStep, maxStep));
+            }
+            else if (turnLeft ^ turnRight)
+            {
+                // Fail closed when the exact OMSI camera profile is
+                // unavailable: preserve the existing keyboard-heading fallback.
                 var turnSpeed = currentHorizontalSpeed > 0.15d
                     ? MovingTurnSpeedDegreesPerSecond
                     : StandingTurnSpeedDegreesPerSecond;
@@ -795,9 +854,9 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
                 heading = NormalizeHeading(heading);
             }
 
-            // openOMSI moves the on-foot avatar from a normalized WASD vector
-            // instead of treating A/D as steering. Keep the same behavior here:
-            // W/S move along the body heading, A/D strafe, and arrows rotate.
+            // openOMSI uses a normalized WASD vector relative to camera yaw.
+            // If camera projection is unavailable, heading remains the stable
+            // fallback so RP remains controllable without guessing memory.
             var forwardAxis = (forward ? 1d : 0d) - (backward ? 1d : 0d);
             var rightAxis = (strafeRight ? 1d : 0d) - (strafeLeft ? 1d : 0d);
             var inputLength = Math.Sqrt(
@@ -812,7 +871,9 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
             var targetSpeed = inputLength > 0d
                 ? running ? RunSpeedMps : WalkSpeedMps
                 : 0d;
-            var radians = heading * Math.PI / 180d;
+            var movementHeading =
+                hasCameraHeading ? cameraHeading : heading;
+            var radians = movementHeading * Math.PI / 180d;
             var forwardX = Math.Sin(radians);
             var forwardY = Math.Cos(radians);
             var rightX = Math.Cos(radians);
@@ -851,7 +912,8 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
             var fromOrigin = Math.Sqrt(
                 fromOriginX * fromOriginX +
                 fromOriginY * fromOriginY);
-            if (fromOrigin > MaxDistanceFromBusMeters)
+            if (!_freeRoamEnabled &&
+                fromOrigin > MaxDistanceFromBusMeters)
             {
                 var scale = MaxDistanceFromBusMeters / fromOrigin;
                 x = _originX + fromOriginX * scale;
@@ -925,6 +987,13 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
             var speed = Math.Sqrt(
                 _movementVelocityX * _movementVelocityX +
                 _movementVelocityY * _movementVelocityY);
+            var courseDegrees = speed > 0.05d
+                ? NormalizeHeading(
+                    Math.Atan2(
+                        _movementVelocityX,
+                        _movementVelocityY) *
+                    180d / Math.PI)
+                : heading;
             var activity = speed <= 0.05d
                 ? RoleplayCharacterActivity.Idle
                 : running && speed > WalkSpeedMps * 1.15d
@@ -939,7 +1008,8 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
                 LocalZ = z,
                 HeadingDegrees = heading,
                 SpeedMps = speed,
-                Activity = activity
+                Activity = activity,
+                CourseDegrees = courseDegrees
             };
 
             var result = await OmsiPluginBridgeRelay.UpdateRoleplayCharacterAsync(
@@ -1269,7 +1339,7 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
             return true;
         }
 
-        if (virtualKey == VkE)
+        if (virtualKey is VkE or VkG)
         {
             var shouldEnter = false;
             lock (_inputSync)
@@ -1373,6 +1443,76 @@ internal sealed class RoleplayCharacterController : IAsyncDisposable
                    state.MapName,
                    currentMapName,
                    StringComparison.OrdinalIgnoreCase);
+    }
+
+    internal static bool TryResolveCameraHeading(
+        OmsiCameraProjectionSnapshot? snapshot,
+        out double headingDegrees)
+    {
+        headingDegrees = 0d;
+        return snapshot is { } camera &&
+               TryResolveCameraHeadingFromMatrices(
+                   camera.View,
+                   camera.Projection,
+                   camera.CapturedAtUtc,
+                   out headingDegrees);
+    }
+
+    internal static bool TryResolveCameraHeadingFromMatrices(
+        Matrix4x4 view,
+        Matrix4x4 projection,
+        DateTimeOffset capturedAtUtc,
+        out double headingDegrees)
+    {
+        headingDegrees = 0d;
+        if (DateTimeOffset.UtcNow - capturedAtUtc >
+                TimeSpan.FromSeconds(2d) ||
+            !Matrix4x4.Invert(view, out var worldFromView))
+        {
+            return false;
+        }
+
+        // Direct3D left-handed projections use +Z in view space while
+        // right-handed projections use -Z. M34 carries that handedness in the
+        // projection matrix, so the same resolver works with the matrices OMSI
+        // exposes and with System.Numerics reference matrices.
+        var viewForward = projection.M34 >= 0f
+            ? Vector3.UnitZ
+            : -Vector3.UnitZ;
+        var worldForward = Vector3.TransformNormal(
+            viewForward,
+            worldFromView);
+
+        if (!float.IsFinite(worldForward.X) ||
+            !float.IsFinite(worldForward.Z))
+        {
+            return false;
+        }
+
+        var horizontalLengthSquared =
+            worldForward.X * worldForward.X +
+            worldForward.Z * worldForward.Z;
+        if (!float.IsFinite(horizontalLengthSquared) ||
+            horizontalLengthSquared < 1.0e-6f)
+        {
+            return false;
+        }
+
+        headingDegrees = NormalizeHeading(
+            Math.Atan2(worldForward.X, worldForward.Z) *
+            180d / Math.PI);
+        return double.IsFinite(headingDegrees);
+    }
+
+    private static double WrapSignedDegrees(double value)
+    {
+        var wrapped = (value + 180d) % 360d;
+        if (wrapped < 0d)
+        {
+            wrapped += 360d;
+        }
+
+        return wrapped - 180d;
     }
 
     private static double NormalizeHeading(double value)

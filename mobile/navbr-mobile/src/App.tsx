@@ -54,7 +54,10 @@ type MobileState = {
     isOnRoute: boolean; offRouteDistanceMeters: number; routeProgressPercent: number;
     distanceRemainingMeters: number; distanceToNextStopMeters?: number | null; maneuver: string;
     distanceToManeuverMeters?: number | null; etaToNextStopSeconds?: number | null;
+    roadmapAvailable?: boolean;
+    bounds?: { minX: number; minY: number; maxX: number; maxY: number } | null;
     routePoints: Point[]; rejoinPoints: Point[];
+    stopPoints?: Array<Point & { name: string; isNext: boolean }>;
     vehicle?: (Point & { headingDegrees: number; speedKph: number }) | null;
     stopSequence?: { routeResolved: boolean; totalStops: number; upcomingStops: string[] };
   };
@@ -181,27 +184,120 @@ const resolveIbisEvent = (events: string[], definition: IbisKeyDefinition) => {
   return best?.eventName || null;
 };
 
-function RouteMap({ state }: { state: MobileState["navigation"] }) {
-  const points = state.routePoints || [], rejoin = state.rejoinPoints || [], vehicle = state.vehicle;
-  const bounds = useMemo(() => {
-    const all = [...points, ...rejoin, ...(vehicle ? [vehicle] : [])];
-    if (!all.length) return null;
-    const xs = all.map(p => p.x), ys = all.map(p => p.y);
-    const minX0 = Math.min(...xs), maxX0 = Math.max(...xs), minY0 = Math.min(...ys), maxY0 = Math.max(...ys);
-    const px = Math.max(20, (maxX0 - minX0) * .08), py = Math.max(20, (maxY0 - minY0) * .08);
-    return { minX: minX0 - px, minY: minY0 - py, width: Math.max(1, maxX0 - minX0 + px * 2), height: Math.max(1, maxY0 - minY0 + py * 2) };
-  }, [points, rejoin, vehicle?.x, vehicle?.y]);
+function RouteMap({
+  state,
+  roadmapUrl
+}: {
+  state: MobileState["navigation"];
+  roadmapUrl?: string | null;
+}) {
+  const points = state.routePoints || [];
+  const rejoin = state.rejoinPoints || [];
+  const stops = state.stopPoints || [];
+  const vehicle = state.vehicle;
+  const mapBounds = state.bounds || null;
 
-  if (!bounds || !vehicle) return <div className="map-empty">Aguardando rota e posição reais do OMSI…</div>;
-  const mp = (p: Point) => `${p.x},${bounds.minY + bounds.height - (p.y - bounds.minY)}`;
-  const vy = bounds.minY + bounds.height - (vehicle.y - bounds.minY);
-  return <svg className="route-map" viewBox={`${bounds.minX} ${bounds.minY} ${bounds.width} ${bounds.height}`} preserveAspectRatio="xMidYMid meet">
-    <polyline className="route-line" points={points.map(mp).join(" ")} />
-    {rejoin.length > 1 && <polyline className="rejoin-line" points={rejoin.map(mp).join(" ")} />}
-    <g transform={`translate(${vehicle.x} ${vy}) rotate(${vehicle.headingDegrees || 0})`}>
-      <circle r="13" className="bus-ring" /><path d="M0 -13 L8 9 L0 5 L-8 9 Z" className="bus-arrow" />
-    </g>
-  </svg>;
+  const displayY = (value: number) =>
+    mapBounds
+      ? mapBounds.minY + mapBounds.maxY - value
+      : -value;
+
+  const bounds = useMemo(() => {
+    const all = [
+      ...points.map(point => ({ x: point.x, y: displayY(point.y) })),
+      ...rejoin.map(point => ({ x: point.x, y: displayY(point.y) })),
+      ...stops.map(point => ({ x: point.x, y: displayY(point.y) })),
+      ...(vehicle ? [{ x: vehicle.x, y: displayY(vehicle.y) }] : [])
+    ];
+    if (!all.length) {
+      if (!mapBounds) return null;
+      return {
+        minX: mapBounds.minX,
+        minY: mapBounds.minY,
+        width: Math.max(1, mapBounds.maxX - mapBounds.minX),
+        height: Math.max(1, mapBounds.maxY - mapBounds.minY)
+      };
+    }
+
+    const xs = all.map(point => point.x);
+    const ys = all.map(point => point.y);
+    const minX0 = Math.min(...xs);
+    const maxX0 = Math.max(...xs);
+    const minY0 = Math.min(...ys);
+    const maxY0 = Math.max(...ys);
+    const px = Math.max(45, (maxX0 - minX0) * 0.12);
+    const py = Math.max(45, (maxY0 - minY0) * 0.12);
+
+    return {
+      minX: minX0 - px,
+      minY: minY0 - py,
+      width: Math.max(90, maxX0 - minX0 + px * 2),
+      height: Math.max(90, maxY0 - minY0 + py * 2)
+    };
+  }, [
+    points,
+    rejoin,
+    stops,
+    vehicle?.x,
+    vehicle?.y,
+    mapBounds?.minX,
+    mapBounds?.minY,
+    mapBounds?.maxX,
+    mapBounds?.maxY
+  ]);
+
+  if (!bounds || !vehicle) {
+    return (
+      <div className="map-empty">
+        {roadmapUrl
+          ? "Roadmap carregado. Aguardando posição real do ônibus…"
+          : "Aguardando mapa, rota e posição reais do OMSI…"}
+      </div>
+    );
+  }
+
+  const mp = (point: Point) => `${point.x},${displayY(point.y)}`;
+  const vehicleY = displayY(vehicle.y);
+  const mapWidth = mapBounds ? Math.max(1, mapBounds.maxX - mapBounds.minX) : 0;
+  const mapHeight = mapBounds ? Math.max(1, mapBounds.maxY - mapBounds.minY) : 0;
+
+  return (
+    <svg
+      className="route-map"
+      viewBox={`${bounds.minX} ${bounds.minY} ${bounds.width} ${bounds.height}`}
+      preserveAspectRatio="xMidYMid meet"
+    >
+      {roadmapUrl && mapBounds && (
+        <image
+          className="roadmap-image"
+          href={roadmapUrl}
+          x={mapBounds.minX}
+          y={mapBounds.minY}
+          width={mapWidth}
+          height={mapHeight}
+          preserveAspectRatio="none"
+        />
+      )}
+      <polyline className="route-line" points={points.map(mp).join(" ")} />
+      {rejoin.length > 1 && (
+        <polyline className="rejoin-line" points={rejoin.map(mp).join(" ")} />
+      )}
+      {stops.map((stop, index) => (
+        <g key={`${stop.name}-${index}`} transform={`translate(${stop.x} ${displayY(stop.y)})`}>
+          <circle r={stop.isNext ? 9 : 5.5} className={stop.isNext ? "route-stop next" : "route-stop"} />
+          {stop.isNext && (
+            <text y="-13" textAnchor="middle" className="route-stop-label">
+              {stop.name}
+            </text>
+          )}
+        </g>
+      ))}
+      <g transform={`translate(${vehicle.x} ${vehicleY}) rotate(${vehicle.headingDegrees || 0})`}>
+        <circle r="13" className="bus-ring" />
+        <path d="M0 -13 L8 9 L0 5 L-8 9 Z" className="bus-arrow" />
+      </g>
+    </svg>
+  );
 }
 
 function SessionMap({ points }: { points: SessionPoint[] }) {
@@ -252,8 +348,10 @@ export default function App() {
   const [pairing, setPairing] = useState(() => localStorage.getItem("navbr-mobile-pairing") || "");
   const [draft, setDraft] = useState(pairing);
   const [state, setState] = useState<MobileState | null>(null);
+  const [roadmapObjectUrl, setRoadmapObjectUrl] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("gps");
   const [operationLineDraft, setOperationLineDraft] = useState("");
+  const [operationLineDirty, setOperationLineDirty] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [discovering, setDiscovering] = useState(false);
   const [pttHeld, setPttHeld] = useState(false);
@@ -285,7 +383,11 @@ export default function App() {
     } finally { setDiscovering(false); }
   };
 
-  const sendCommand = async (action: string, payload: Record<string, unknown> = {}) => {
+  const sendCommand = async (
+    action: string,
+    payload: Record<string, unknown> = {},
+    keepalive = false
+  ) => {
     if (!serverBase || !pairing) return false;
     try {
       const response = await fetch(`${serverBase}/api/mobile/command`, {
@@ -293,7 +395,8 @@ export default function App() {
         headers: { "Content-Type": "application/json", "X-NavBR-Mobile-Code": pairing },
         body: JSON.stringify({ action, ...payload }),
         cache: "no-store",
-        mode: "cors"
+        mode: "cors",
+        keepalive
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const result = await response.json() as { success?: boolean; error?: string | null };
@@ -315,23 +418,140 @@ export default function App() {
   useEffect(() => {
     if (!pairing || !serverBase) return;
     let active = true;
+    let reading = false;
+
     const read = async () => {
+      if (reading || !active) return;
+      reading = true;
       try {
-        const response = await fetch(`${serverBase}/api/mobile/state`, { headers: { "X-NavBR-Mobile-Code": pairing }, cache: "no-store", mode: "cors" });
+        const response = await fetch(`${serverBase}/api/mobile/state`, {
+          headers: { "X-NavBR-Mobile-Code": pairing },
+          cache: "no-store",
+          mode: "cors"
+        });
         if (response.status === 401) throw new Error("Código de pareamento inválido.");
         if (!response.ok) throw new Error(`NavBR respondeu HTTP ${response.status}.`);
         const next = await response.json() as MobileState;
-        if (active) { setState(next); setError(null); }
-      } catch (e) { if (active) setError(e instanceof Error ? e.message : "Falha ao acessar o NavBR no PC."); }
+        if (active) {
+          setState(next);
+          setError(null);
+        }
+      } catch (e) {
+        if (active) setError(e instanceof Error ? e.message : "Falha ao acessar o NavBR no PC.");
+      } finally {
+        reading = false;
+      }
     };
+
+    const resume = () => {
+      if (document.visibilityState === "visible") {
+        void read();
+      }
+    };
+
     void read();
-    const timer = window.setInterval(read, 700);
-    return () => { active = false; window.clearInterval(timer); };
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible") {
+        void read();
+      }
+    }, 700);
+
+    document.addEventListener("visibilitychange", resume);
+    window.addEventListener("online", resume);
+    window.addEventListener("pageshow", resume);
+
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", resume);
+      window.removeEventListener("online", resume);
+      window.removeEventListener("pageshow", resume);
+    };
   }, [pairing, serverBase]);
+  useEffect(() => {
+    if (!pairing || !serverBase || !state?.navigation.roadmapAvailable) {
+      setRoadmapObjectUrl(null);
+      return;
+    }
+
+    const controller = new AbortController();
+    let active = true;
+    let createdUrl: string | null = null;
+
+    const loadRoadmap = async () => {
+      try {
+        const response = await fetch(`${serverBase}/api/mobile/roadmap`, {
+          headers: { "X-NavBR-Mobile-Code": pairing },
+          cache: "no-store",
+          mode: "cors",
+          signal: controller.signal
+        });
+        if (!response.ok) {
+          throw new Error(`Roadmap HTTP ${response.status}`);
+        }
+
+        const blob = await response.blob();
+        createdUrl = URL.createObjectURL(blob);
+        if (active) {
+          setRoadmapObjectUrl(createdUrl);
+        }
+      } catch (error) {
+        if (!controller.signal.aborted && active) {
+          setRoadmapObjectUrl(null);
+        }
+      }
+    };
+
+    void loadRoadmap();
+    return () => {
+      active = false;
+      controller.abort();
+      if (createdUrl) {
+        URL.revokeObjectURL(createdUrl);
+      }
+    };
+  }, [
+    pairing,
+    serverBase,
+    state?.navigation.mapName,
+    state?.navigation.roadmapAvailable
+  ]);
 
   useEffect(() => {
-    setOperationLineDraft(state?.hud?.navBrTpTsManualLine || "");
-  }, [state?.hud?.navBrTpTsManualLine]);
+    const releasePtt = () => {
+      setPttHeld(false);
+      void sendCommand("voice-ptt", { active: false }, true);
+    };
+    const releasePttOnVisibilityChange = () => {
+      if (document.visibilityState !== "visible") {
+        releasePtt();
+      }
+    };
+
+    document.addEventListener("visibilitychange", releasePttOnVisibilityChange);
+    window.addEventListener("pagehide", releasePtt);
+    return () => {
+      document.removeEventListener("visibilitychange", releasePttOnVisibilityChange);
+      window.removeEventListener("pagehide", releasePtt);
+    };
+  }, [serverBase, pairing]);
+
+
+  useEffect(() => {
+    const backendLine = state?.hud?.navBrTpTsManualLine || "";
+    if (operationLineDirty) {
+      if (backendLine === operationLineDraft) {
+        setOperationLineDirty(false);
+      }
+      return;
+    }
+
+    setOperationLineDraft(backendLine);
+  }, [
+    state?.hud?.navBrTpTsManualLine,
+    operationLineDirty,
+    operationLineDraft
+  ]);
 
   useEffect(() => {
     if (!pttHeld) return;
@@ -418,7 +638,10 @@ export default function App() {
       {tab === "gps" && <div>
         <div className="hero-card"><div><small>PRÓXIMA PARADA</small><h2>{nav?.nextStopName || vehicle?.nextStopName || "Aguardando rota"}</h2><span>{nav?.currentStreetName || vehicle?.currentStreetName || state?.omsi.mapName || "—"}</span></div><div className="speed"><strong>{Math.round(vehicle?.speedKph || 0)}</strong><span>km/h</span></div></div>
         <div className="maneuver-card"><div className="maneuver-icon">↑</div><div><small>{nav?.maneuver || "SEM MANOBRA"}</small><strong>{fmtDistance(nav?.distanceToManeuverMeters)}</strong></div><div className={nav?.isOnRoute ? "route-ok" : "route-off"}>{nav?.isOnRoute ? "NA ROTA" : `FORA ${fmtDistance(nav?.offRouteDistanceMeters)}`}</div></div>
-        <div className="map-card"><RouteMap state={nav || { available: false, isOnRoute: false, offRouteDistanceMeters: 0, routeProgressPercent: 0, distanceRemainingMeters: 0, maneuver: "None", routePoints: [], rejoinPoints: [] }} /></div>
+        <div className="map-card"><RouteMap
+          state={nav || { available: false, isOnRoute: false, offRouteDistanceMeters: 0, routeProgressPercent: 0, distanceRemainingMeters: 0, maneuver: "None", routePoints: [], rejoinPoints: [] }}
+          roadmapUrl={roadmapObjectUrl}
+        /></div>
         <div className="metric-grid"><div><small>PRÓXIMA</small><strong>{fmtDistance(nav?.distanceToNextStopMeters)}</strong></div><div><small>ETA</small><strong>{fmtEta(nav?.etaToNextStopSeconds)}</strong></div><div><small>RESTANTE</small><strong>{fmtDistance(nav?.distanceRemainingMeters)}</strong></div><div><small>PROGRESSO</small><strong>{Math.round(nav?.routeProgressPercent || 0)}%</strong></div></div>
         {!!nav?.stopSequence?.upcomingStops?.length && <div className="stops-card"><small>PRÓXIMAS PARADAS</small>{nav.stopSequence.upcomingStops.map((s, i) => <div key={s + i}><b>{i + 1}</b><span>{s}</span></div>)}</div>}
       </div>}
@@ -636,7 +859,7 @@ export default function App() {
             <button className={hud?.navBrTpTsAutoDirection ? "active-control" : ""} onClick={() => void sendCommand("navbr-tpts-configure", { autoDirection: !hud?.navBrTpTsAutoDirection })}>{hud?.navBrTpTsAutoDirection ? "TP/TS Auto" : "TP/TS Manual"}</button>
           </div>
           <div className="ops-manual">
-            <label>LINHA MANUAL<input value={operationLineDraft} onChange={e => setOperationLineDraft(e.target.value.slice(0, 24))} placeholder={vehicle?.line || "Ex.: 76"} /></label>
+            <label>LINHA MANUAL<input value={operationLineDraft} onChange={e => { setOperationLineDraft(e.target.value.slice(0, 24)); setOperationLineDirty(true); }} placeholder={vehicle?.line || "Ex.: 76"} /></label>
             <div className="ops-direction">
               <button className={hud?.navBrTpTsManualDirection !== "TS" ? "active-control" : ""} onClick={() => void sendCommand("navbr-tpts-configure", { autoDirection: false, direction: "TP", line: operationLineDraft || undefined })}>TP</button>
               <button className={hud?.navBrTpTsManualDirection === "TS" ? "active-control" : ""} onClick={() => void sendCommand("navbr-tpts-configure", { autoDirection: false, direction: "TS", line: operationLineDraft || undefined })}>TS</button>
@@ -650,7 +873,7 @@ export default function App() {
           <div className="player-list">
             {(op?.hofRoutes || []).slice(0, 64).map(route => (
               <button className="player-card" key={`${route.line}|${route.route}`}
-                onClick={() => { setOperationLineDraft(route.line); void sendCommand("navbr-tpts-configure", { line: route.line, autoDirection: false }); }}>
+                onClick={() => { setOperationLineDraft(route.line); setOperationLineDirty(true); void sendCommand("navbr-tpts-configure", { line: route.line, autoDirection: false }); }}>
                 <div className="player-main"><strong>{route.line} · rota {route.route}</strong><span>{route.description || "Sem descrição"}</span><small>{route.hofFile}{route.destinationCode ? ` · destino ${route.destinationCode}` : ""}</small></div>
               </button>
             ))}

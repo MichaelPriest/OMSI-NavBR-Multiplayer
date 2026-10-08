@@ -1,12 +1,65 @@
 using System.IO.Pipes;
+using System.Numerics;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using NavBR.Client.Multiplayer;
+using NavBR.Client.Overlay;
 using NavBR.Client.PluginBridge;
 using NavBR.Shared.Multiplayer;
+using NavBR.Shared.OpenOmsi;
 using NavBR.Shared.PluginBridge;
 using NavBR.Shared.Telemetry;
+
+var roleplayControllerType =
+    typeof(OmsiPluginBridgeServer).Assembly.GetType(
+        "NavBR.Client.Multiplayer.RoleplayCharacterController",
+        throwOnError: true)!;
+var cameraHeadingResolver =
+    roleplayControllerType.GetMethod(
+        "TryResolveCameraHeadingFromMatrices",
+        BindingFlags.NonPublic | BindingFlags.Static)
+    ?? throw new InvalidOperationException(
+        "RP camera heading resolver not found");
+
+static double ResolveCameraHeading(
+    MethodInfo resolver,
+    Vector3 target)
+{
+    var view = Matrix4x4.CreateLookAt(
+        Vector3.Zero,
+        target,
+        Vector3.UnitY);
+    var projection = Matrix4x4.CreatePerspectiveFieldOfView(
+        MathF.PI / 3f,
+        16f / 9f,
+        0.1f,
+        1000f);
+    object?[] args =
+    [
+        view,
+        projection,
+        DateTimeOffset.UtcNow,
+        0d
+    ];
+    Require(
+        (bool)(resolver.Invoke(null, args) ?? false),
+        "RP camera heading resolver rejected a valid view matrix");
+    return (double)(args[3] ?? double.NaN);
+}
+
+var rpHeadingNorth =
+    ResolveCameraHeading(cameraHeadingResolver, Vector3.UnitZ);
+var rpHeadingEast =
+    ResolveCameraHeading(cameraHeadingResolver, Vector3.UnitX);
+Require(
+    Math.Abs(rpHeadingNorth) < 0.01d ||
+    Math.Abs(rpHeadingNorth - 360d) < 0.01d,
+    $"RP camera +Z heading must be 0 degrees, got {rpHeadingNorth:F3}");
+Require(
+    Math.Abs(rpHeadingEast - 90d) < 0.01d,
+    $"RP camera +X heading must be 90 degrees, got {rpHeadingEast:F3}");
 
 var identityReaderType = typeof(OmsiPluginBridgeServer).Assembly.GetType(
     "NavBR.Client.Telemetry.OmsiVehicleIdentityReader",
@@ -92,6 +145,794 @@ finally
 {
     Directory.Delete(fingerprintRoot, recursive: true);
 }
+
+
+
+var varTableBuilderType =
+    typeof(OmsiPluginBridgeServer).Assembly.GetType(
+        "NavBR.Client.Multiplayer.OpenOmsiVarTableManifestBuilder",
+        throwOnError: true)!;
+var tryBuildVarTable =
+    varTableBuilderType.GetMethod(
+        "TryBuild",
+        BindingFlags.NonPublic | BindingFlags.Static)
+    ?? throw new InvalidOperationException(
+        "openOMSI VarTable manifest builder not found");
+var engineFed =
+    varTableBuilderType.GetMethod(
+        "EngineFed",
+        BindingFlags.NonPublic | BindingFlags.Static)
+    ?? throw new InvalidOperationException(
+        "openOMSI engine-fed filter not found");
+
+Require(
+    (bool)(engineFed.Invoke(null, ["door_0"]) ?? false) &&
+    (bool)(engineFed.Invoke(null, ["AI_Light"]) ?? false) &&
+    !(bool)(engineFed.Invoke(null, ["engine_n"]) ?? true) &&
+    !(bool)(engineFed.Invoke(null, ["wiperpos"]) ?? true),
+    "openOMSI engine-fed variable filter diverged");
+
+var varTableRoot = Path.Combine(
+    Path.GetTempPath(),
+    "NavBR-openOMSI-vartable-" + Guid.NewGuid().ToString("N"));
+var varTableBusDir = Path.Combine(varTableRoot, "Vehicles", "VarTableSmoke");
+var varTableModelDir = Path.Combine(varTableBusDir, "model");
+var varTableProgramDir = Path.Combine(varTableRoot, "program");
+Directory.CreateDirectory(varTableBusDir);
+Directory.CreateDirectory(varTableModelDir);
+Directory.CreateDirectory(varTableProgramDir);
+File.WriteAllText(
+    Path.Combine(varTableProgramDir, "varlist_roadvehicle.txt"),
+    "Velocity\nAI_Light\n");
+File.WriteAllText(
+    Path.Combine(varTableProgramDir, "stringvarlist_roadvehicle.txt"),
+    "ident\nnumber\n");
+File.WriteAllText(
+    Path.Combine(varTableBusDir, "vars.txt"),
+    "door_0\nengine_n\nwiperpos\nmy_custom\n");
+File.WriteAllText(
+    Path.Combine(varTableBusDir, "strings.txt"),
+    "destination\nIBIS_line\n");
+File.WriteAllText(
+    Path.Combine(varTableModelDir, "Smoke.cfg"),
+    "[matl_change]\nsmoke.bmp\n0\nmy_custom\n\n[visible]\nwiperpos\n");
+File.WriteAllText(
+    Path.Combine(varTableBusDir, "Smoke.bus"),
+    "[model]\nmodel\\Smoke.cfg\n\n[varnamelist]\n1\nvars.txt\n\n[stringvarnamelist]\n1\nstrings.txt\n");
+
+try
+{
+    var manifest = tryBuildVarTable.Invoke(
+        null,
+        [
+            varTableRoot,
+            @"Vehicles\VarTableSmoke\Smoke.bus"
+        ]) ?? throw new InvalidOperationException(
+            "openOMSI VarTable manifest was not built");
+
+    var hashProperty = manifest.GetType().GetProperty("Hash")
+        ?? throw new InvalidOperationException("VarTable Hash property missing");
+    var floatNamesProperty = manifest.GetType().GetProperty("FloatNames")
+        ?? throw new InvalidOperationException("VarTable FloatNames property missing");
+    var stringNamesProperty = manifest.GetType().GetProperty("StringNames")
+        ?? throw new InvalidOperationException("VarTable StringNames property missing");
+
+    var actualVarHash = (uint)(hashProperty.GetValue(manifest)
+        ?? throw new InvalidOperationException("VarTable hash missing"));
+    var actualFloatNames = (string[])(floatNamesProperty.GetValue(manifest)
+        ?? Array.Empty<string>());
+    var actualStringNames = (string[])(stringNamesProperty.GetValue(manifest)
+        ?? Array.Empty<string>());
+
+    Require(
+        actualFloatNames.SequenceEqual(
+            new[] { "engine_n", "wiperpos", "my_custom" },
+            StringComparer.OrdinalIgnoreCase),
+        "VarTable float filtering/order diverged from openOMSI");
+    Require(
+        actualStringNames.SequenceEqual(
+            new[] { "ident", "number", "destination", "IBIS_line" },
+            StringComparer.OrdinalIgnoreCase),
+        "VarTable string order diverged from openOMSI");
+
+    static uint OpenOmsiVarHash(IEnumerable<string> names)
+    {
+        var hash = 0x811C9DC5u;
+        foreach (var name in names)
+        {
+            foreach (var b in Encoding.UTF8
+                         .GetBytes(name.ToLowerInvariant())
+                         .Append((byte)0))
+            {
+                hash = unchecked((hash ^ b) * 0x01000193u);
+            }
+        }
+        return hash;
+    }
+
+    var expectedVarHash = OpenOmsiVarHash(
+        actualFloatNames.Concat(actualStringNames));
+
+    Require(
+        actualVarHash == expectedVarHash,
+        $"VarTable FNV-1a mismatch: got {actualVarHash:X8}, expected {expectedVarHash:X8}");
+
+
+    var syncTableBuilderType =
+        typeof(OmsiPluginBridgeServer).Assembly.GetType(
+            "NavBR.Client.Multiplayer.OpenOmsiSyncTableManifestBuilder",
+            throwOnError: true)!;
+    var tryBuildSyncTable =
+        syncTableBuilderType.GetMethod(
+            "TryBuild",
+            BindingFlags.NonPublic | BindingFlags.Static)
+        ?? throw new InvalidOperationException(
+            "openOMSI SyncTable manifest builder not found");
+    var syncManifest =
+        tryBuildSyncTable.Invoke(
+            null,
+            [
+                varTableRoot,
+                @"Vehicles\VarTableSmoke\Smoke.bus",
+                manifest
+            ])
+        ?? throw new InvalidOperationException(
+            "openOMSI SyncTable manifest was not built");
+
+    static T ReadManifestProperty<T>(
+        object instance,
+        string propertyName) =>
+        (T)(instance.GetType().GetProperty(propertyName)?.GetValue(instance)
+            ?? throw new InvalidOperationException(
+                $"SyncTable property {propertyName} missing"));
+
+    var syncHash = ReadManifestProperty<uint>(syncManifest, "Hash");
+    var syncVarTableHash =
+        ReadManifestProperty<uint>(syncManifest, "VarTableHash");
+    var lampIds = ReadManifestProperty<ushort[]>(syncManifest, "LampIds");
+    var switchIds = ReadManifestProperty<ushort[]>(syncManifest, "SwitchIds");
+    var valueIds = ReadManifestProperty<ushort[]>(syncManifest, "ValueIds");
+    var doorIds = ReadManifestProperty<ushort[]>(syncManifest, "DoorIds");
+    var engineNId = ReadManifestProperty<ushort?>(syncManifest, "EngineNId");
+    var lampNames = ReadManifestProperty<string[]>(syncManifest, "LampNames");
+    var switchNames = ReadManifestProperty<string[]>(syncManifest, "SwitchNames");
+
+    Require(
+        syncHash != 0 &&
+        syncVarTableHash == actualVarHash &&
+        lampIds.Length == 1 &&
+        switchIds.Length == 1 &&
+        doorIds.Length == 1 &&
+        lampNames.SequenceEqual(
+            new[] { "my_custom" },
+            StringComparer.OrdinalIgnoreCase) &&
+        switchNames.SequenceEqual(
+            new[] { "wiperpos" },
+            StringComparer.OrdinalIgnoreCase),
+        "openOMSI visual SyncTable manifest did not preserve lamp/switch/door layout");
+
+    var sampledValues = new Dictionary<ushort, float>();
+    foreach (var id in lampIds)
+    {
+        sampledValues[id] = 1f;
+    }
+    foreach (var id in switchIds)
+    {
+        sampledValues[id] = 1f;
+    }
+    foreach (var id in valueIds)
+    {
+        sampledValues[id] = 0.5f;
+    }
+    foreach (var id in doorIds)
+    {
+        sampledValues[id] = 1f;
+    }
+    if (engineNId is ushort rpmId)
+    {
+        sampledValues[rpmId] = 1500f;
+    }
+
+    var scriptSnapshot = new LocalOmsiScriptVarsSnapshot(
+        DateTimeOffset.UtcNow,
+        actualVarHash,
+        sampledValues.Keys.ToArray(),
+        sampledValues.Values.ToArray(),
+        [],
+        []);
+
+    var multiplayerServiceType = typeof(MultiplayerClientService);
+    var buildVisualSnapshot =
+        multiplayerServiceType.GetMethod(
+            "BuildOpenOmsiVisualSnapshot",
+            BindingFlags.NonPublic | BindingFlags.Static)
+        ?? throw new InvalidOperationException(
+            "local openOMSI visual snapshot builder not found");
+    var visualSnapshot =
+        buildVisualSnapshot.Invoke(
+            null,
+            [syncManifest, scriptSnapshot])
+        ?? throw new InvalidOperationException(
+            "local openOMSI visual snapshot was not produced");
+
+    Require(
+        buildVisualSnapshot.Invoke(
+            null,
+            [
+                syncManifest,
+                scriptSnapshot with
+                {
+                    VarTableHash = actualVarHash ^ 0x00000001u
+                }
+            ]) is null,
+        "visual SyncTable accepted a snapshot from a different VarTable");
+    Require(
+        buildVisualSnapshot.Invoke(
+            null,
+            [
+                syncManifest,
+                scriptSnapshot with
+                {
+                    CapturedAtUtc =
+                        DateTimeOffset.UtcNow -
+                        TimeSpan.FromSeconds(3)
+                }
+            ]) is null,
+        "visual SyncTable accepted a stale local PublicVars snapshot");
+
+    var telemetry = new VehicleTelemetry(
+        "sync-local",
+        DateTimeOffset.UtcNow,
+        "Grundorf",
+        "SyncTableSmoke",
+        null,
+        null,
+        100d,
+        200d,
+        0d,
+        90d,
+        0d,
+        true,
+        VehiclePath: @"Vehicles\VarTableSmoke\Smoke.bus");
+    var presence = new PlayerPresence(
+        "sync-local",
+        "Sync Local",
+        "sync-room",
+        "Grundorf",
+        DateTimeOffset.UtcNow);
+    var frame = new PlayerTelemetryFrame(
+        presence,
+        telemetry);
+
+    var buildLocalInfo =
+        multiplayerServiceType.GetMethod(
+            "BuildOpenOmsiLocalInfo",
+            BindingFlags.NonPublic | BindingFlags.Static)
+        ?? throw new InvalidOperationException(
+            "local openOMSI INFO builder not found");
+    var localInfo =
+        (OpenOmsiLanVehicleInfo?)buildLocalInfo.Invoke(
+            null,
+            [
+                (ushort)27,
+                frame,
+                syncHash
+            ])
+        ?? throw new InvalidOperationException(
+            "local openOMSI INFO was not produced");
+    Require(
+        localInfo.SyncTableHash == syncHash,
+        "local openOMSI INFO did not publish the visual SyncTable hash");
+
+    var buildLocalState =
+        multiplayerServiceType.GetMethod(
+            "BuildOpenOmsiLocalState",
+            BindingFlags.NonPublic | BindingFlags.Static)
+        ?? throw new InvalidOperationException(
+            "local openOMSI STATE builder not found");
+    var localState =
+        (OpenOmsiLanVehicleState?)buildLocalState.Invoke(
+            null,
+            [
+                (ushort)27,
+                (ushort)9,
+                frame,
+                visualSnapshot,
+                12_345u
+            ])
+        ?? throw new InvalidOperationException(
+            "local openOMSI STATE was not produced");
+
+    Require(
+        localState.Lamps.Count == lampIds.Length &&
+        localState.Switches.Count == switchIds.Length &&
+        localState.Values.Count == valueIds.Length &&
+        localState.Doors.Count == doorIds.Length &&
+        Math.Abs(localState.EngineRpm - 1500f) < 0.01f,
+        "local visual snapshot was not mapped into openOMSI STATE arrays");
+
+    var statePacket = OpenOmsiLanStateCodec.Encode(localState);
+    Require(
+        OpenOmsiLanStateCodec.TryDecode(
+            statePacket,
+            out var decodedVisualState),
+        "openOMSI visual STATE did not survive v6 encode/decode");
+    Require(
+        decodedVisualState.Lamps.Count == lampIds.Length &&
+        decodedVisualState.Switches.Count == switchIds.Length &&
+        decodedVisualState.Values.Count == valueIds.Length &&
+        decodedVisualState.Doors.Count == doorIds.Length &&
+        decodedVisualState.Lamps.All(value => Math.Abs(value - 1f) < 0.001f) &&
+        decodedVisualState.Switches.All(value => Math.Abs(value - 1f) < 0.001f) &&
+        decodedVisualState.Doors.All(value => Math.Abs(value - 1f) < 0.001f),
+        "openOMSI visual STATE arrays changed across the v6 wire codec");
+
+    var hasCompatibleVisualState =
+        multiplayerServiceType.GetMethod(
+            "HasCompatibleOpenOmsiVisualState",
+            BindingFlags.NonPublic | BindingFlags.Static)
+        ?? throw new InvalidOperationException(
+            "remote openOMSI SyncTable compatibility guard not found");
+    Require(
+        (bool)(hasCompatibleVisualState.Invoke(
+            null,
+            [decodedVisualState, syncManifest]) ?? false),
+        "remote openOMSI visual SyncTable rejected a matching STATE");
+    Require(
+        !(bool)(hasCompatibleVisualState.Invoke(
+            null,
+            [
+                decodedVisualState with { Lamps = [] },
+                syncManifest
+            ]) ?? true),
+        "remote openOMSI visual SyncTable accepted mismatched STATE cardinality");
+}
+finally
+{
+    Directory.Delete(varTableRoot, recursive: true);
+}
+
+var interpolatorType =
+    typeof(OmsiPluginBridgeServer).Assembly.GetType(
+        "NavBR.Client.Multiplayer.OpenOmsiRemoteStateInterpolator",
+        throwOnError: true)!;
+var interpolator =
+    Activator.CreateInstance(
+        interpolatorType,
+        nonPublic: true)
+    ?? throw new InvalidOperationException(
+        "openOMSI remote state interpolator could not be created");
+var pushAndInterpolate =
+    interpolatorType.GetMethod(
+        "TryPushAndInterpolate",
+        BindingFlags.NonPublic | BindingFlags.Instance)
+    ?? throw new InvalidOperationException(
+        "openOMSI remote state interpolation entrypoint not found");
+
+bool PushState(
+    OpenOmsiLanVehicleState state,
+    out OpenOmsiLanVehicleState? rendered)
+{
+    object?[] args = [state, null];
+    var accepted =
+        (bool)(pushAndInterpolate.Invoke(
+            interpolator,
+            args) ?? false);
+    rendered =
+        args[1] as OpenOmsiLanVehicleState;
+    return accepted;
+}
+
+var orderedState =
+    OpenOmsiLanVehicleState.Empty(42, 1) with
+    {
+        Flags = OpenOmsiLanProtocol.FlagVehicle,
+        X = 10d,
+        Y = 20d,
+        SpeedKph = 25f,
+        SentMilliseconds = 1_000u
+    };
+Require(
+    PushState(
+        orderedState,
+        out var orderedRendered) &&
+    orderedRendered is not null,
+    "openOMSI interpolator rejected the first ordered state");
+
+var staleState =
+    orderedState with
+    {
+        Sequence = 2,
+        X = 9d,
+        SentMilliseconds = 900u
+    };
+Require(
+    !PushState(staleState, out _),
+    "openOMSI interpolator accepted a stale/reordered state");
+
+var laterState =
+    orderedState with
+    {
+        Sequence = 3,
+        X = 30d,
+        SentMilliseconds = 50_000u
+    };
+Require(
+    PushState(laterState, out _),
+    "openOMSI interpolator rejected a later state");
+
+var restartedClockState =
+    orderedState with
+    {
+        Sequence = 1,
+        X = 5d,
+        SentMilliseconds = 1_000u
+    };
+Require(
+    PushState(
+        restartedClockState,
+        out var restartRendered) &&
+    restartRendered is not null,
+    "openOMSI interpolator did not reset after remote clock restart");
+
+var updaterType =
+    typeof(OmsiPluginBridgeServer).Assembly.GetType(
+        "NavBR.Client.Updates.NavBRAutoUpdateService",
+        throwOnError: true)!;
+var compareReleaseVersions =
+    updaterType.GetMethod(
+        "CompareReleaseVersions",
+        BindingFlags.NonPublic | BindingFlags.Static)
+    ?? throw new InvalidOperationException(
+        "application updater version comparator not found");
+var tryGetExpectedSha256 =
+    updaterType.GetMethod(
+        "TryGetExpectedSha256",
+        BindingFlags.NonPublic | BindingFlags.Static)
+    ?? throw new InvalidOperationException(
+        "application updater checksum parser not found");
+var isReleaseAllowedForChannel =
+    updaterType.GetMethod(
+        "IsReleaseAllowedForChannel",
+        BindingFlags.NonPublic | BindingFlags.Static)
+    ?? throw new InvalidOperationException(
+        "application updater channel filter not found");
+
+int CompareUpdateVersions(string left, string right) =>
+    (int)(compareReleaseVersions.Invoke(
+        null,
+        [left, right])
+        ?? throw new InvalidOperationException(
+            "application updater version comparator returned null"));
+
+Require(
+    CompareUpdateVersions(
+        "v0.3.0-alpha.26",
+        "0.3.0-alpha.25") > 0,
+    "application updater did not order Alpha.26 after Alpha.25");
+Require(
+    CompareUpdateVersions(
+        "0.3.1-alpha.1",
+        "0.3.0-alpha.99") > 0,
+    "application updater did not prioritize a newer core version");
+Require(
+    CompareUpdateVersions(
+        "0.3.0",
+        "0.3.0-alpha.99") > 0,
+    "application updater did not prioritize a stable build over its prerelease");
+Require(
+    CompareUpdateVersions(
+        "0.3.0-beta.1",
+        "0.3.0-alpha.99") > 0,
+    "application updater prerelease ordering regressed");
+Require(
+    (bool)(isReleaseAllowedForChannel.Invoke(
+        null,
+        ["0.3.0", "stable"])
+        ?? false),
+    "stable update channel rejected a stable release");
+Require(
+    !(bool)(isReleaseAllowedForChannel.Invoke(
+        null,
+        ["0.3.0-alpha.26", "stable"])
+        ?? true),
+    "stable update channel accepted an Alpha release");
+Require(
+    (bool)(isReleaseAllowedForChannel.Invoke(
+        null,
+        ["0.3.0-alpha.26", "alpha"])
+        ?? false),
+    "public Alpha update channel rejected an Alpha release");
+Require(
+    (bool)(isReleaseAllowedForChannel.Invoke(
+        null,
+        ["0.3.0", "alpha"])
+        ?? false),
+    "public Alpha update channel rejected a stable release");
+
+
+var updaterChecksumText =
+    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa  other.zip\r\n" +
+    "6e891050d649e22513156281a8de64fe4e2dbeb90380a714608ce73b34b83a92  OMSI-NavBR-Multiplayer-v0.3.0-alpha.25-Setup-win-x86.exe\r\n";
+object?[] updaterChecksumArgs =
+[
+    updaterChecksumText,
+    "OMSI-NavBR-Multiplayer-v0.3.0-alpha.25-Setup-win-x86.exe",
+    null
+];
+Require(
+    (bool)(tryGetExpectedSha256.Invoke(
+        null,
+        updaterChecksumArgs)
+        ?? false),
+    "application updater could not read the official installer checksum");
+Require(
+    string.Equals(
+        updaterChecksumArgs[2] as string,
+        "6e891050d649e22513156281a8de64fe4e2dbeb90380a714608ce73b34b83a92",
+        StringComparison.Ordinal),
+    "application updater returned the wrong installer checksum");
+
+var mainWindowType =
+    typeof(OmsiPluginBridgeServer).Assembly.GetType(
+        "NavBR.Client.MainWindow",
+        throwOnError: true)!;
+var sanitizeDiagnosticText =
+    mainWindowType.GetMethod(
+        "SanitizeDiagnosticText",
+        BindingFlags.NonPublic | BindingFlags.Static)
+    ?? throw new InvalidOperationException(
+        "diagnostic privacy sanitizer not found");
+var diagnosticSanitizerInput =
+    """
+    password=hunter2
+    "roomId":"navbr-secret-room"
+    player=player-secret
+    Authorization: Bearer bearer-secret-value
+    ipv4=192.168.10.20
+    ipv6=2001:db8::42
+    email=driver@example.com
+    path=C:\Users\Driver\secret.txt
+    unc=\\nas\private\driver.txt
+    """;
+var sanitizedDiagnosticText =
+    (string?)sanitizeDiagnosticText.Invoke(
+        null,
+        [diagnosticSanitizerInput])
+    ?? throw new InvalidOperationException(
+        "diagnostic privacy sanitizer returned null");
+foreach (var sensitiveValue in new[]
+{
+    "hunter2",
+    "navbr-secret-room",
+    "player-secret",
+    "bearer-secret-value",
+    "192.168.10.20",
+    "2001:db8::42",
+    "driver@example.com",
+    @"C:\Users\Driver\secret.txt",
+    @"\\nas\private\driver.txt"
+})
+{
+    Require(
+        !sanitizedDiagnosticText.Contains(
+            sensitiveValue,
+            StringComparison.OrdinalIgnoreCase),
+        $"diagnostic sanitizer leaked '{sensitiveValue}'");
+}
+Require(
+    sanitizedDiagnosticText.Contains("[redacted]", StringComparison.Ordinal) &&
+    sanitizedDiagnosticText.Contains("[ip]", StringComparison.Ordinal) &&
+    sanitizedDiagnosticText.Contains("[email]", StringComparison.Ordinal) &&
+    sanitizedDiagnosticText.Contains("[path]", StringComparison.Ordinal),
+    "diagnostic sanitizer did not emit expected privacy markers");
+
+var buildHudSettingsFromWeb =
+    mainWindowType.GetMethod(
+        "BuildHudSettingsFromWeb",
+        BindingFlags.NonPublic | BindingFlags.Static)
+    ?? throw new InvalidOperationException(
+        "React HUD settings builder not found");
+using var hudPayloadDocument = JsonDocument.Parse(
+    """
+    {
+      "enabled": true,
+      "preset": "normal",
+      "theme": "navbr-modern",
+      "anchor": "bottom-right",
+      "autoScale": true,
+      "showFuel": true,
+      "showPedals": false,
+      "showStatus": true,
+      "showMinimap": false,
+      "showMultiplayer": false,
+      "showAlerts": true,
+      "showSideIndicators": false,
+      "mapZoom": 1.75,
+      "minimapStyle": "circular",
+      "telematrixEnabled": true,
+      "telematrixTheme": 2,
+      "telematrixSize": 1
+    }
+    """);
+var hudPayload = hudPayloadDocument.RootElement.Clone();
+var reactHudSettings =
+    (MultiplayerSettings?)buildHudSettingsFromWeb.Invoke(
+        null,
+        [hudPayload])
+    ?? throw new InvalidOperationException(
+        "React HUD settings builder returned null");
+Require(
+    reactHudSettings.DashboardSettingsVersion == 4,
+    "React HUD settings builder regressed to a legacy dashboard version");
+Require(
+    Math.Abs(reactHudSettings.HudZoom - 1.75d) < 0.001d,
+    "React HUD settings builder lost GPS base zoom");
+Require(
+    string.Equals(
+        reactHudSettings.DashboardMinimapStyle,
+        "circular",
+        StringComparison.OrdinalIgnoreCase),
+    "React HUD settings builder lost circular GPS shape");
+Require(
+    reactHudSettings.TelematrixSettingsVersion == 1 &&
+    reactHudSettings.TelematrixWidgetEnabled &&
+    reactHudSettings.TelematrixTheme == 2 &&
+    reactHudSettings.TelematrixSize == 1,
+    "React HUD settings builder lost TeleMatrix settings");
+
+var hudOverlayType =
+    typeof(OmsiPluginBridgeServer).Assembly.GetType(
+        "NavBR.Client.Overlay.HudOverlayWindow",
+        throwOnError: true)!;
+Require(
+    hudOverlayType.GetMethod(
+        "UpdateLocalRoadTraffic",
+        BindingFlags.Public | BindingFlags.Instance) is not null,
+    "HUD overlay lost local OMSI road-traffic feed support");
+
+var speedZoomMethod =
+    hudOverlayType.GetMethod(
+        "ComputeHudSpeedZoomFactor",
+        BindingFlags.NonPublic | BindingFlags.Static)
+    ?? throw new InvalidOperationException(
+        "HUD speed-sensitive zoom helper not found");
+var lowSpeedZoom =
+    (double?)speedZoomMethod.Invoke(null, [0d]) ?? double.NaN;
+var highSpeedZoom =
+    (double?)speedZoomMethod.Invoke(null, [80d]) ?? double.NaN;
+Require(
+    double.IsFinite(lowSpeedZoom) &&
+    double.IsFinite(highSpeedZoom) &&
+    lowSpeedZoom > highSpeedZoom &&
+    lowSpeedZoom <= 1.18d + 0.001d &&
+    highSpeedZoom >= 0.72d - 0.001d,
+    "HUD speed-sensitive GPS zoom is invalid");
+
+var trafficHeadingMethod =
+    hudOverlayType.GetMethod(
+        "TrafficQuaternionToHeadingDegrees",
+        BindingFlags.NonPublic | BindingFlags.Static)
+    ?? throw new InvalidOperationException(
+        "HUD traffic quaternion heading helper not found");
+var ninetyDegrees = Math.Sqrt(0.5d);
+var heading90 =
+    (double?)trafficHeadingMethod.Invoke(
+        null,
+        [0d, ninetyDegrees, 0d, ninetyDegrees])
+    ?? double.NaN;
+Require(
+    double.IsFinite(heading90) &&
+    Math.Abs(heading90 - 90d) < 0.01d,
+    "HUD AI traffic marker heading conversion is invalid");
+
+var trafficReaderType =
+    typeof(OmsiPluginBridgeServer).Assembly.GetType(
+        "NavBR.Client.Telemetry.OmsiRoadTrafficReader",
+        throwOnError: true)!;
+Require(
+    trafficReaderType.GetMethod(
+        "Read",
+        BindingFlags.Public | BindingFlags.Static) is not null,
+    "OMSI road-traffic reader not available for GPS traffic markers");
+
+var appliedHudPreset =
+    HudProfileCatalog.ApplyPreset(
+        MultiplayerSettings.CreateDefault(),
+        HudProfileCatalog.DefaultPreset);
+Require(
+    appliedHudPreset.DashboardSettingsVersion == 4,
+    "HUD preset application regressed to a legacy dashboard settings version");
+
+var normalizeMultiplayerSettings =
+    typeof(MultiplayerSettingsStore).GetMethod(
+        "Normalize",
+        BindingFlags.NonPublic | BindingFlags.Static)
+    ?? throw new InvalidOperationException(
+        "multiplayer settings normalizer not found");
+var legacyDefaultHud = MultiplayerSettings.CreateDefault() with
+{
+    DashboardSettingsVersion = 3,
+    DashboardAnchor = "free",
+    DashboardX = 0.02d,
+    DashboardY = 0.58d,
+    DashboardShowMinimap = true,
+    DashboardShowMultiplayer = true,
+    DashboardShowAlerts = true,
+    DashboardShowSideIndicators = true,
+    DashboardMinimapScale = 1d,
+    DashboardMultiplayerScale = 1d,
+    DashboardAlertsScale = 1d,
+    DashboardSideIndicatorsScale = 1d
+};
+var migratedDefaultHud =
+    (MultiplayerSettings?)normalizeMultiplayerSettings.Invoke(
+        null,
+        [legacyDefaultHud])
+    ?? throw new InvalidOperationException(
+        "HUD settings migration returned null");
+Require(
+    migratedDefaultHud.DashboardSettingsVersion == 4 &&
+    string.Equals(
+        migratedDefaultHud.DashboardAnchor,
+        "bottom-right",
+        StringComparison.OrdinalIgnoreCase) &&
+    !migratedDefaultHud.DashboardShowMinimap &&
+    !migratedDefaultHud.DashboardShowMultiplayer &&
+    !migratedDefaultHud.DashboardShowSideIndicators,
+    "default Alpha.26 HUD layout was not migrated away from overlapping duplicate widgets");
+
+var customizedHud =
+    (MultiplayerSettings?)normalizeMultiplayerSettings.Invoke(
+        null,
+        [legacyDefaultHud with { DashboardX = 0.42d }])
+    ?? throw new InvalidOperationException(
+        "custom HUD settings migration returned null");
+Require(
+    string.Equals(
+        customizedHud.DashboardAnchor,
+        "free",
+        StringComparison.OrdinalIgnoreCase) &&
+    customizedHud.DashboardShowMinimap &&
+    customizedHud.DashboardShowMultiplayer &&
+    customizedHud.DashboardShowSideIndicators,
+    "HUD cleanup migration overwrote a customized layout");
+
+var untouchedLegacyTelematrix =
+    (MultiplayerSettings?)normalizeMultiplayerSettings.Invoke(
+        null,
+        [MultiplayerSettings.CreateDefault() with
+        {
+            TelematrixSettingsVersion = 0,
+            TelematrixWidgetEnabled = true,
+            TelematrixTheme = 0,
+            TelematrixSize = 0,
+            TelematrixAutoDirection = true,
+            TelematrixManualLine = null,
+            TelematrixManualDirection = "TP"
+        }])
+    ?? throw new InvalidOperationException(
+        "TeleMatrix settings migration returned null");
+Require(
+    untouchedLegacyTelematrix.TelematrixSettingsVersion == 1 &&
+    !untouchedLegacyTelematrix.TelematrixWidgetEnabled,
+    "untouched legacy TeleMatrix was not migrated to opt-in");
+
+var customizedLegacyTelematrix =
+    (MultiplayerSettings?)normalizeMultiplayerSettings.Invoke(
+        null,
+        [MultiplayerSettings.CreateDefault() with
+        {
+            TelematrixSettingsVersion = 0,
+            TelematrixWidgetEnabled = true,
+            TelematrixTheme = 1
+        }])
+    ?? throw new InvalidOperationException(
+        "custom TeleMatrix settings migration returned null");
+Require(
+    customizedLegacyTelematrix.TelematrixWidgetEnabled &&
+    customizedLegacyTelematrix.TelematrixTheme == 1,
+    "TeleMatrix cleanup migration overwrote customized settings");
 
 var coordinatorType =
     typeof(OmsiPluginBridgeServer).Assembly.GetType(
@@ -286,12 +1127,12 @@ Require(
         issue.Severity == CompatibilityIssueSeverity.Warning),
     "HOF mismatch must remain visible as a warning without blocking spawn.");
 
-var openOmsiInstallerType =
+var openOmsiEnvironmentType =
     typeof(OmsiPluginBridgeServer).Assembly.GetType(
-        "NavBR.Client.PluginInstaller.OpenOmsiPluginInstallationService",
+        "NavBR.Client.OpenOmsi.OpenOmsiEnvironmentLocator",
         throwOnError: true)!;
 var resolveInstalledVehicle =
-    openOmsiInstallerType.GetMethod(
+    openOmsiEnvironmentType.GetMethod(
         "ResolveInstalledVehicleFile",
         BindingFlags.Public |
         BindingFlags.Static)
@@ -323,10 +1164,7 @@ try
 
     var resolvedAsset = (string?)resolveInstalledVehicle.Invoke(
         null,
-        [
-            assetRelative.Replace('\\', '/'),
-            null
-        ]);
+        [assetRelative.Replace('\\', '/')]);
     Require(
         string.Equals(
             Path.GetFullPath(resolvedAsset ?? string.Empty),
@@ -336,14 +1174,14 @@ try
 
     var escapedAsset = (string?)resolveInstalledVehicle.Invoke(
         null,
-        [@"..\outside.bus", null]);
+        [@"..\outside.bus"]);
     Require(
         escapedAsset is null,
         "openOMSI content-root vehicle resolver accepted path traversal.");
 
     var invalidAsset = (string?)resolveInstalledVehicle.Invoke(
         null,
-        [@"Vehicles\NavBR_Smoke\Smoke.cfg", null]);
+        [@"Vehicles\NavBR_Smoke\Smoke.cfg"]);
     Require(
         invalidAsset is null,
         "openOMSI content-root vehicle resolver accepted a non-vehicle extension.");
@@ -678,6 +1516,193 @@ finally
     Directory.Delete(mapRoot, recursive: true);
 }
 
+var routeTraceRoot = Path.Combine(
+    Path.GetTempPath(),
+    "NavBR-route-grid-smoke-" +
+    Guid.NewGuid().ToString("N"));
+var routeTraceMapDirectory = Path.Combine(
+    routeTraceRoot,
+    "maps",
+    "RouteGridSmoke");
+var routeTraceTtData = Path.Combine(
+    routeTraceMapDirectory,
+    "TTData");
+Directory.CreateDirectory(routeTraceTtData);
+var routeTraceGlobal = Path.Combine(
+    routeTraceMapDirectory,
+    "global.cfg");
+File.WriteAllText(
+    routeTraceGlobal,
+    """
+    [name]
+    RouteGridSmoke
+    [map]
+    183
+    104
+    tile_183_104.map
+    [map]
+    183
+    105
+    tile_183_105.map
+    """);
+// Exercise the real OMSI TTR -> tile [spline] -> .sli lane geometry
+// pipeline. Empty tile files used to make this integration test fail before
+// it could ever verify route selection or GPS guidance.
+var routeTraceSplines = Path.Combine(routeTraceRoot, "Splines");
+Directory.CreateDirectory(routeTraceSplines);
+File.WriteAllText(
+    Path.Combine(routeTraceSplines, "NavBR-Smoke-Road.sli"),
+    string.Concat(Enumerable.Range(0, 14).Select(_ =>
+        "[path]\n0\n0\n0\n")));
+File.WriteAllText(
+    Path.Combine(routeTraceMapDirectory, "tile_183_104.map"),
+    """
+    [spline]
+    0
+    Splines\NavBR-Smoke-Road.sli
+    733660
+    -1
+    -1
+    150
+    0
+    140
+    0
+    160
+    0
+    """);
+File.WriteAllText(
+    Path.Combine(routeTraceMapDirectory, "tile_183_105.map"),
+    """
+    [spline]
+    0
+    Splines\NavBR-Smoke-Road.sli
+    733661
+    -1
+    -1
+    150
+    0
+    0
+    0
+    160
+    0
+    """);
+File.WriteAllText(
+    Path.Combine(routeTraceTtData, "SmokeTrack.ttr"),
+    """
+    0:
+    [track_entry]
+    733660
+    13
+    183
+    104
+    16.1000000000
+    0
+
+    1:
+    [track_entry]
+    733661
+    0
+    183
+    105
+    25.0000000000
+    0
+    """);
+File.WriteAllText(
+    Path.Combine(routeTraceTtData, "DirectionA.ttp"),
+    """
+    [trip]
+    SmokeTrack
+    Terminal A
+    100
+    """);
+File.WriteAllText(
+    Path.Combine(routeTraceTtData, "DirectionB.ttp"),
+    """
+    [trip]
+    OtherTrack
+    Terminal B
+    100
+    """);
+try
+{
+    var routeTraceMap = new NavBR.Client.Maps.OmsiMapInfo(
+        "RouteGridSmoke",
+        "RouteGridSmoke",
+        routeTraceMapDirectory,
+        routeTraceGlobal,
+        null,
+        2,
+        null);
+    var routeTraceLayout = new NavBR.Client.Maps.OmsiMapLayout(
+        183,
+        104,
+        183,
+        105,
+        false,
+        300d);
+    var nativeGridTrace =
+        NavBR.Client.Maps.OmsiRouteTraceReader.TryRead(
+            routeTraceMap,
+            routeTraceLayout,
+            "SmokeTrack");
+    Require(
+        nativeGridTrace.Count >= 2 &&
+        nativeGridTrace[0].GridX == 183 &&
+        nativeGridTrace[0].GridY == 104 &&
+        nativeGridTrace[^1].GridX == 183 &&
+        nativeGridTrace[^1].GridY == 105,
+        "native OMSI TTR GridX/GridY track entries were not parsed correctly");
+
+    // OMSI can expose a direction/IBIS route code instead of the .ttr name.
+    // With two trips on the same line, the destination must disambiguate the
+    // correct track rather than leaving RouteAvailable false.
+    var destinationResolvedTrace =
+        NavBR.Client.Maps.OmsiRouteTraceReader.TryRead(
+            routeTraceMap,
+            routeTraceLayout,
+            "01",
+            "100",
+            "Terminal A");
+    Require(
+        destinationResolvedTrace.Count >= 2 &&
+        destinationResolvedTrace[0].GridX == 183 &&
+        destinationResolvedTrace[0].GridY == 104,
+        "active OMSI route code + destination did not resolve the correct TTR trace");
+
+    var routePipelineTelemetry =
+        new VehicleTelemetry(
+            PlayerId: "route-pipeline",
+            Timestamp: DateTimeOffset.UtcNow,
+            MapName: "RouteGridSmoke",
+            VehicleName: "Route Test Bus",
+            Line: "100",
+            Route: "01",
+            X: 0d,
+            Y: 0d,
+            Z: 0d,
+            HeadingDegrees: 0d,
+            SpeedKph: 20d,
+            IsInGame: true,
+            GridX: 183,
+            GridY: 104,
+            TileX: 150d,
+            TileY: 150d,
+            DestinationName: "Terminal A");
+    var routePipelineSnapshot =
+        NavBR.Client.Maps.NavBRNavigationEngine.Evaluate(
+            routePipelineTelemetry,
+            routeTraceLayout,
+            destinationResolvedTrace);
+    Require(
+        routePipelineSnapshot.RouteAvailable &&
+        routePipelineSnapshot.IsOnRoute,
+        "TTData -> route trace -> NavBRNavigationSnapshot pipeline did not produce an active route");
+}
+finally
+{
+    Directory.Delete(routeTraceRoot, recursive: true);
+}
+
 var openOmsiPoseRoot = Path.Combine(
     Path.GetTempPath(),
     "NavBR-openOMSI-world-pose-" +
@@ -833,6 +1858,51 @@ try
         0.001,
         "openOMSI anchor heading");
 
+    // Regression: the GPS must feed the projected Kachel/lane anchor into
+    // navigation, not continue evaluating the raw world-only telemetry.
+    // This mirrors the HUD pipeline after TryGetGpsDisplayAnchor.
+    var navigationGridX =
+        ReadAnchorInt(anchorType, anchorValue, "GridX");
+    var navigationGridY =
+        ReadAnchorInt(anchorType, anchorValue, "GridY");
+    var navigationTileX =
+        ReadAnchorDouble(anchorType, anchorValue, "LocalX");
+    var navigationTileY =
+        ReadAnchorDouble(anchorType, anchorValue, "LocalZ");
+    var anchoredNavigationTelemetry =
+        openOmsiWorldTelemetry with
+        {
+            GridX = navigationGridX,
+            GridY = navigationGridY,
+            TileX = navigationTileX,
+            TileY = navigationTileY
+        };
+    var navigationLayout =
+        new NavBR.Client.Maps.OmsiMapLayout(
+            1,
+            1,
+            1,
+            1,
+            false,
+            300d);
+    NavBR.Client.Maps.OmsiRouteTracePoint[] navigationTrace =
+    [
+        new(1, 1, 5d, navigationTileY),
+        new(1, 1, 295d, navigationTileY)
+    ];
+    var navigationSnapshot =
+        NavBR.Client.Maps.NavBRNavigationEngine.Evaluate(
+            anchoredNavigationTelemetry,
+            navigationLayout,
+            navigationTrace);
+    Require(
+        navigationSnapshot.RouteAvailable,
+        "GPS route became unavailable after applying the projected road/Kachel anchor.");
+    Require(
+        navigationSnapshot.IsOnRoute &&
+        navigationSnapshot.OffRouteDistanceMeters < 0.01d,
+        "GPS navigation did not evaluate the player on the same projected road anchor used by the marker.");
+
     var openOmsiPresence =
         new PlayerPresence(
             "openomsi-world",
@@ -871,17 +1941,26 @@ try
         typeof(OmsiPluginBridgeServer).Assembly.GetType(
             "NavBR.Client.Multiplayer.RemotePhysicalVehicleCoordinator",
             throwOnError: true)!;
+    // The production converter is an instance member because rear-section
+    // conversion uses the coordinator's own physical road anchor resolver.
+    // Exercise that same code path with the real WorldPoseSmoke map.
+    var openOmsiCoordinator =
+        Activator.CreateInstance(
+            openOmsiCoordinatorType,
+            poseRootSource)
+        ?? throw new InvalidOperationException(
+            "openOMSI physical vehicle coordinator could not be created.");
     var applyOpenOmsiWorldAnchor =
         openOmsiCoordinatorType.GetMethod(
             "ApplyOpenOmsiWorldAnchor",
             BindingFlags.NonPublic |
-            BindingFlags.Static)
+            BindingFlags.Instance)
         ?? throw new InvalidOperationException(
             "openOMSI -> OMSI2 pose converter not found.");
     var convertedFrame =
         (PlayerTelemetryFrame)(
             applyOpenOmsiWorldAnchor.Invoke(
-                null,
+                openOmsiCoordinator,
                 [openOmsiFrame, anchorValue])
             ?? throw new InvalidOperationException(
                 "openOMSI -> OMSI2 pose converter returned null."));
@@ -1140,6 +2219,223 @@ var afterInvalidCounters = server.GetConnectionInfo();
 Require(afterInvalidCounters.LastStatus?.SystemVariableCallbacks == 123,
     "runtime status with invalid counters was accepted");
 
+var localVarsConfig = new PluginBridgeMessage(
+    PluginBridgeProtocol.ConfigureLocalVehicleVars,
+    PluginBridgeProtocol.Version,
+    VarTableHash: 0x1234ABCDu,
+    VariableIndices: new ushort[] { 2, 5, 9 },
+    StringVariableIndices: new ushort[] { 1, 6 });
+var localVarsConfigRead = reader.ReadLineAsync(cts.Token).AsTask();
+await server.SendMessageAsync(localVarsConfig, cts.Token);
+var localVarsConfigLine = await localVarsConfigRead;
+var receivedLocalVarsConfig =
+    JsonSerializer.Deserialize<PluginBridgeMessage>(
+        localVarsConfigLine ??
+        throw new InvalidOperationException(
+            "local VARS configuration not received"));
+Require(
+    receivedLocalVarsConfig?.Type ==
+        PluginBridgeProtocol.ConfigureLocalVehicleVars,
+    "unexpected local VARS configuration message type");
+Require(
+    receivedLocalVarsConfig?.VarTableHash == 0x1234ABCDu,
+    "local VARS configuration hash mismatch");
+Require(
+    receivedLocalVarsConfig?.VariableIndices?.SequenceEqual(
+        new ushort[] { 2, 5, 9 }) == true,
+    "local VARS configuration ids mismatch");
+Require(
+    receivedLocalVarsConfig?.StringVariableIndices?.SequenceEqual(
+        new ushort[] { 1, 6 }) == true,
+    "local VARS configuration string ids mismatch");
+
+var remoteVarsMessage = new PluginBridgeMessage(
+    PluginBridgeProtocol.RemoteVehicleVars,
+    PluginBridgeProtocol.Version,
+    PlayerId: "remote-vars-smoke",
+    VarTableHash: 0x89ABCDEFu,
+    VariableIndices: new ushort[] { 3, 7 },
+    VariableValues: new float[] { 1.25f, -0.5f },
+    StringVariableIndices: new ushort[] { 2 },
+    StringVariableValues: new[] { "Linha 875A" });
+var remoteVarsRead = reader.ReadLineAsync(cts.Token).AsTask();
+await server.SendMessageAsync(remoteVarsMessage, cts.Token);
+var remoteVarsLine = await remoteVarsRead;
+var receivedRemoteVars =
+    JsonSerializer.Deserialize<PluginBridgeMessage>(
+        remoteVarsLine ??
+        throw new InvalidOperationException(
+            "remote VARS message not received"));
+Require(
+    receivedRemoteVars?.Type ==
+        PluginBridgeProtocol.RemoteVehicleVars,
+    "unexpected remote VARS message type");
+Require(
+    receivedRemoteVars?.PlayerId == "remote-vars-smoke" &&
+    receivedRemoteVars.VarTableHash == 0x89ABCDEFu,
+    "remote VARS identity/hash mismatch");
+Require(
+    receivedRemoteVars.VariableIndices?.SequenceEqual(
+        new ushort[] { 3, 7 }) == true &&
+    receivedRemoteVars.VariableValues?.SequenceEqual(
+        new float[] { 1.25f, -0.5f }) == true &&
+    receivedRemoteVars.StringVariableIndices?.SequenceEqual(
+        new ushort[] { 2 }) == true &&
+    receivedRemoteVars.StringVariableValues?.SequenceEqual(
+        new[] { "Linha 875A" }) == true,
+    "remote VARS payload mismatch");
+
+var remoteVisualState = new PluginBridgeMessage(
+    PluginBridgeProtocol.RemoteVehicleState,
+    PluginBridgeProtocol.Version,
+    PlayerId: "remote-visual-smoke",
+    SyncTableHash: 0x13572468u,
+    SyncLamps: new float[] { 1f, 0.25f },
+    SyncSwitches: new float[] { 0.75f },
+    SyncValues: new float[] { 12.5f, -3f },
+    SyncDoors: new float[] { 1f, 0f },
+    SyncLampVariableIndices: new ushort[] { 10, 11 },
+    SyncSwitchVariableIndices: new ushort[] { 20 },
+    SyncValueVariableIndices: new ushort[] { 30, 31 },
+    SyncDoorVariableIndices: new ushort[] { 40, 41 });
+var remoteVisualRead = reader.ReadLineAsync(cts.Token).AsTask();
+await server.SendMessageAsync(remoteVisualState, cts.Token);
+var remoteVisualLine = await remoteVisualRead;
+var receivedRemoteVisual =
+    JsonSerializer.Deserialize<PluginBridgeMessage>(
+        remoteVisualLine ??
+        throw new InvalidOperationException(
+            "remote visual SyncTable state not received"));
+Require(
+    receivedRemoteVisual?.Type ==
+        PluginBridgeProtocol.RemoteVehicleState &&
+    receivedRemoteVisual.PlayerId == "remote-visual-smoke" &&
+    receivedRemoteVisual.SyncTableHash == 0x13572468u,
+    "remote visual SyncTable identity/hash mismatch");
+Require(
+    receivedRemoteVisual.SyncLamps?.SequenceEqual(
+        new float[] { 1f, 0.25f }) == true &&
+    receivedRemoteVisual.SyncSwitches?.SequenceEqual(
+        new float[] { 0.75f }) == true &&
+    receivedRemoteVisual.SyncValues?.SequenceEqual(
+        new float[] { 12.5f, -3f }) == true &&
+    receivedRemoteVisual.SyncDoors?.SequenceEqual(
+        new float[] { 1f, 0f }) == true,
+    "remote visual SyncTable values mismatch");
+Require(
+    receivedRemoteVisual.SyncLampVariableIndices?.SequenceEqual(
+        new ushort[] { 10, 11 }) == true &&
+    receivedRemoteVisual.SyncSwitchVariableIndices?.SequenceEqual(
+        new ushort[] { 20 }) == true &&
+    receivedRemoteVisual.SyncValueVariableIndices?.SequenceEqual(
+        new ushort[] { 30, 31 }) == true &&
+    receivedRemoteVisual.SyncDoorVariableIndices?.SequenceEqual(
+        new ushort[] { 40, 41 }) == true,
+    "remote visual SyncTable ids mismatch");
+
+LocalOmsiScriptVarsSnapshotStore.Clear();
+var localVarsSnapshot = new PluginBridgeMessage(
+    PluginBridgeProtocol.LocalVehicleVars,
+    PluginBridgeProtocol.Version,
+    ProcessId: 4242,
+    TimestampUnixMilliseconds:
+        DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+    VarTableHash: 0xCAFEBABEu,
+    VariableIndices: new ushort[] { 1, 4 },
+    VariableValues: new float[] { 0.75f, 22.5f },
+    StringVariableIndices: new ushort[] { 0, 3 },
+    StringVariableValues: new[] { "NBR-1001", "Centro" });
+await writer.WriteLineAsync(
+    JsonSerializer.Serialize(localVarsSnapshot));
+
+LocalOmsiScriptVarsSnapshot? storedLocalVars = null;
+for (var attempt = 0; attempt < 30; attempt++)
+{
+    storedLocalVars = LocalOmsiScriptVarsSnapshotStore.Latest;
+    if (storedLocalVars is not null)
+    {
+        break;
+    }
+
+    await Task.Delay(50, cts.Token);
+}
+Require(
+    storedLocalVars is not null,
+    "local VARS snapshot was not stored by the bridge");
+Require(
+    storedLocalVars!.VarTableHash == 0xCAFEBABEu &&
+    storedLocalVars.VariableIndices.SequenceEqual(
+        new ushort[] { 1, 4 }) &&
+    storedLocalVars.VariableValues.SequenceEqual(
+        new float[] { 0.75f, 22.5f }) &&
+    storedLocalVars.StringVariableIndices.SequenceEqual(
+        new ushort[] { 0, 3 }) &&
+    storedLocalVars.StringVariableValues.SequenceEqual(
+        new[] { "NBR-1001", "Centro" }),
+    "local VARS snapshot contents mismatch");
+
+// A missing OMSI StringVar must not prevent valid PublicVars from crossing
+// the real plugin pipe; conversely, a vehicle may expose only StringVars.
+LocalOmsiScriptVarsSnapshotStore.Clear();
+var floatsOnlyVars = localVarsSnapshot with
+{
+    TimestampUnixMilliseconds =
+        DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+    VariableIndices = new ushort[] { 4 },
+    VariableValues = new float[] { 12.5f },
+    StringVariableIndices = [],
+    StringVariableValues = []
+};
+await writer.WriteLineAsync(JsonSerializer.Serialize(floatsOnlyVars));
+LocalOmsiScriptVarsSnapshot? floatsOnlyStored = null;
+for (var attempt = 0; attempt < 30; attempt++)
+{
+    floatsOnlyStored = LocalOmsiScriptVarsSnapshotStore.Latest;
+    if (floatsOnlyStored is not null)
+    {
+        break;
+    }
+
+    await Task.Delay(50, cts.Token);
+}
+Require(
+    floatsOnlyStored is not null &&
+    floatsOnlyStored.VariableIndices.SequenceEqual(new ushort[] { 4 }) &&
+    floatsOnlyStored.VariableValues.SequenceEqual(new float[] { 12.5f }) &&
+    floatsOnlyStored.StringVariableIndices.Length == 0 &&
+    floatsOnlyStored.StringVariableValues.Length == 0,
+    "partial local VARS lost valid floats when StringVars were unavailable");
+
+LocalOmsiScriptVarsSnapshotStore.Clear();
+var stringsOnlyVars = localVarsSnapshot with
+{
+    TimestampUnixMilliseconds =
+        DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+    VariableIndices = [],
+    VariableValues = [],
+    StringVariableIndices = new ushort[] { 3 },
+    StringVariableValues = new[] { "Centro" }
+};
+await writer.WriteLineAsync(JsonSerializer.Serialize(stringsOnlyVars));
+LocalOmsiScriptVarsSnapshot? stringsOnlyStored = null;
+for (var attempt = 0; attempt < 30; attempt++)
+{
+    stringsOnlyStored = LocalOmsiScriptVarsSnapshotStore.Latest;
+    if (stringsOnlyStored is not null)
+    {
+        break;
+    }
+
+    await Task.Delay(50, cts.Token);
+}
+Require(
+    stringsOnlyStored is not null &&
+    stringsOnlyStored.VariableIndices.Length == 0 &&
+    stringsOnlyStored.VariableValues.Length == 0 &&
+    stringsOnlyStored.StringVariableIndices.SequenceEqual(new ushort[] { 3 }) &&
+    stringsOnlyStored.StringVariableValues.SequenceEqual(new[] { "Centro" }),
+    "partial local VARS lost valid strings when PublicVars were unavailable");
+
 var trafficVehicle = new TrafficVehicleState(
     "traffic-17",
     "Vehicles\\MAN_NL_NG\\MAN_NL263.bus",
@@ -1192,7 +2488,7 @@ var receivedClear = JsonSerializer.Deserialize<PluginBridgeMessage>(
 Require(receivedClear?.Type == PluginBridgeProtocol.ClearTrafficVehicles,
     "traffic clear message type mismatch");
 
-Console.WriteLine("Plugin bridge v3 smoke test passed: handshake + runtime capability refresh + status + traffic delivery + rejection checks.");
+Console.WriteLine("Plugin bridge v3 smoke test passed: handshake + status + local/remote VARS + traffic delivery + rejection checks.");
 
 static void Require(bool condition, string message)
 {

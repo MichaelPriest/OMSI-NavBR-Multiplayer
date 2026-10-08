@@ -10,6 +10,9 @@ public static class NavBRHotkeyCatalog
 {
     public const int OmsiShiftModifier = 2;
     public const int OmsiCtrlModifier = 4;
+    // OMSI 2 itself leaves Alt unused in keyboard.cfg. openOMSI uses bit 8,
+    // so include it in conflict detection instead of assuming Alt chords are free.
+    public const int OmsiAltModifier = 8;
 
     public const string DefaultChatHotkey = "F9";
     public const string DefaultVoiceHotkey = "F10";
@@ -50,6 +53,12 @@ public static class NavBRHotkeyCatalog
             result.Add(new(key.Name, key.VirtualKey, key.ScanCode, 0));
             result.Add(new($"Shift+{key.Name}", key.VirtualKey, key.ScanCode, OmsiShiftModifier));
             result.Add(new($"Ctrl+{key.Name}", key.VirtualKey, key.ScanCode, OmsiCtrlModifier));
+            result.Add(new($"Alt+{key.Name}", key.VirtualKey, key.ScanCode, OmsiAltModifier));
+            result.Add(new(
+                $"Ctrl+Alt+{key.Name}",
+                key.VirtualKey,
+                key.ScanCode,
+                OmsiCtrlModifier | OmsiAltModifier));
             result.Add(new(
                 $"Ctrl+Shift+{key.Name}",
                 key.VirtualKey,

@@ -1,8 +1,8 @@
-using System.Collections.Concurrent;
 using System.Diagnostics;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.SignalR.Client;
 using NavBR.Client.PluginBridge;
+using NavBR.Client.Maps;
 using NavBR.Client.Network;
 using NavBR.Shared.Multiplayer;
 using NavBR.Shared.OpenOmsi;
@@ -15,26 +15,12 @@ namespace NavBR.Client.Multiplayer;
 public sealed partial class MultiplayerClientService : IAsyncDisposable
 {
     private const long RemoteSourceClockResetThresholdMs = 30_000;
-    private static readonly TimeSpan OpenOmsiVehicleResolutionCacheDuration =
-        TimeSpan.FromSeconds(10);
-    private static readonly TimeSpan OpenOmsiVehicleResolutionRetryDelay =
-        TimeSpan.FromSeconds(2);
-
     private readonly RemotePhysicalVehicleCoordinator _physicalVehicles;
-    private readonly OpenOmsiRemoteVehicleAssetResolver _openOmsiVehicleAssets;
+    private readonly OmsiPhysicalRoadAnchorResolver _openOmsiWorldAnchorResolver;
     private readonly SemaphoreSlim _physicalVehicleStatusPublishGate = new(1, 1);
     private readonly object _remoteTelemetryOrderSync = new();
     private readonly Dictionary<string, long> _lastRemoteSourceTimestampByPlayer =
         new(StringComparer.OrdinalIgnoreCase);
-    private readonly ConcurrentDictionary<string, byte>
-        _openOmsiPhysicalRouteInFlight =
-            new(StringComparer.OrdinalIgnoreCase);
-    private readonly ConcurrentDictionary<string, OpenOmsiResolvedVehicleCacheEntry>
-        _openOmsiResolvedVehicleByPlayer =
-            new(StringComparer.OrdinalIgnoreCase);
-    private readonly ConcurrentDictionary<string, DateTimeOffset>
-        _openOmsiVehicleResolutionRetryAfterByPlayer =
-            new(StringComparer.OrdinalIgnoreCase);
     private long _physicalVehicleStatusRevision;
     private HubConnection? _connection;
     private JoinRoomRequest? _joinRequest;
@@ -43,11 +29,13 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
         Func<string?>? omsiInstallDirectorySource = null,
         Func<IReadOnlyList<string>>? openOmsiContentRootsSource = null)
     {
+        var installDirectorySource =
+            omsiInstallDirectorySource ?? (() => null);
         _physicalVehicles = new RemotePhysicalVehicleCoordinator(
-            omsiInstallDirectorySource);
-        _openOmsiVehicleAssets =
-            new OpenOmsiRemoteVehicleAssetResolver(
-                openOmsiContentRootsSource);
+            installDirectorySource);
+        _openOmsiWorldAnchorResolver =
+            new OmsiPhysicalRoadAnchorResolver(
+                installDirectorySource);
         _physicalVehicles.PhysicalVehicleSetChanged += QueuePhysicalVehicleSetPublish;
     }
 
@@ -61,6 +49,7 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
     public event Action<string?>? TrafficAuthorityChanged;
     public event Action<string?>? RoomOwnerChanged;
     public event Action<ChatMessage>? ChatMessageReceived;
+    public event Action<string, string>? SessionCommandReceived;
     public event Action<VoiceFrame>? VoiceFrameReceived;
 
     public HubConnectionState State => _connection?.State ?? HubConnectionState.Disconnected;
@@ -107,15 +96,12 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
     {
         await DisconnectAsync();
 
-        // The WebView controller can exist without ever rendering the retired
-        // WPF window. Re-apply the persisted physical-bus preference at the
-        // actual connection boundary so a partial/hidden UI initialization
-        // can never leave settings=true while the runtime marker remains off.
-        if (ExperimentalFeatureFlags.PhysicalVehiclesEnabled !=
-            settings.ExperimentalPhysicalVehiclesEnabled)
+        // openOMSI v6 is the physical multiplayer authority. Keep the legacy
+        // marker enabled for native-write compatibility, but no longer let a
+        // historical UI preference disable remote buses.
+        if (!ExperimentalFeatureFlags.PhysicalVehiclesEnabled)
         {
-            ExperimentalFeatureFlags.SetPhysicalVehiclesEnabled(
-                settings.ExperimentalPhysicalVehiclesEnabled);
+            ExperimentalFeatureFlags.SetPhysicalVehiclesEnabled(true);
         }
 
         string hubUrl;
@@ -191,6 +177,7 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
                 cancellationToken);
 
             ApplyRoomSnapshotMetadata(snapshot);
+            await ConfigureOpenOmsiV6Async(snapshot, cancellationToken);
             ConnectionStateChanged?.Invoke(connection.State);
             RoomSnapshotReceived?.Invoke(snapshot);
             return snapshot;
@@ -209,7 +196,6 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
             _physicalVehicles.SetLocalManifest(null);
             _physicalVehicles.SetLocalTelemetry(null);
             _ = _physicalVehicles.ClearAsync();
-            _ = OpenOmsiLanGateway.Shared.ClearRemotesAsync();
             _ = OmsiPluginBridgeRelay.ClearRemotePlayersAsync();
             ConnectionStateChanged?.Invoke(HubConnectionState.Disconnected);
 
@@ -311,29 +297,49 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
             compatibilityId,
             cancellationToken);
 
+        // Physical multiplayer now uses the openOMSI LAN v6 transport.
+        // SignalR keeps this telemetry only for NavBR service features such as
+        // CCO/company/map status; it no longer drives remote RoadVehicles.
+        await PublishOpenOmsiTelemetryAsync(outgoing, cancellationToken);
         await connection.SendAsync("PublishTelemetry", outgoing, cancellationToken);
     }
 
-    public async Task PublishTrafficSnapshotAsync(
+    public Task PublishTrafficSnapshotAsync(
         TrafficSnapshot snapshot,
         CancellationToken cancellationToken = default)
     {
-        var connection = _connection;
-        if (!IsTrafficAuthority ||
-            connection is null || connection.State != HubConnectionState.Connected)
+        if (!IsTrafficAuthority)
         {
-            return;
+            return Task.CompletedTask;
         }
 
-        await connection.SendAsync("PublishTrafficSnapshot", snapshot, cancellationToken);
+        // Physical/shared traffic is owned exclusively by openOMSI WORLD v6.
+        // SignalR remains the NavBR service plane and must never carry a second
+        // authoritative copy of AI movement.
+        return PublishOpenOmsiTrafficSnapshotAsync(
+            snapshot,
+            cancellationToken);
     }
 
     public async Task SendChatMessageAsync(
         string text,
         CancellationToken cancellationToken = default)
     {
+        var openOmsi = _openOmsiV6Session;
+        if (openOmsi?.IsRunning == true &&
+            openOmsi.LocalPlayerId != 0)
+        {
+            await openOmsi.SendChatAsync(
+                text,
+                cancellationToken);
+            return;
+        }
+
         var connection = RequireConnectedConnection();
-        await connection.SendAsync("SendChatMessage", text, cancellationToken);
+        await connection.SendAsync(
+            "SendChatMessage",
+            text,
+            cancellationToken);
     }
 
     public async Task<TimeSpan?> MeasureAndPublishLatencyAsync(
@@ -500,12 +506,12 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
         _connection = null;
         _joinRequest = null;
         ResetRoomMetadata();
+        await StopOpenOmsiV6Async();
         ClearRemoteTelemetryOrder();
         _physicalVehicles.SetLocalManifest(null);
         _physicalVehicles.SetLocalTelemetry(null);
         ClearRoleplayCharacters();
         _ = _physicalVehicles.ClearAsync();
-        _ = OpenOmsiLanGateway.Shared.ClearRemotesAsync();
         _ = OmsiPluginBridgeRelay.ClearRemotePlayersAsync();
 
         if (connection is null)
@@ -538,15 +544,22 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
 
     private void RegisterHandlers(HubConnection connection)
     {
-        connection.On<PlayerPresence>("playerJoined", player => PlayerJoined?.Invoke(player));
-        connection.On<PlayerPresence>("playerPresenceChanged", player => PlayerPresenceChanged?.Invoke(player));
+        connection.On<PlayerPresence>("playerJoined", player =>
+        {
+            PlayerJoined?.Invoke(player);
+            _ = HandleOpenOmsiPresenceAsync(player);
+        });
+        connection.On<PlayerPresence>("playerPresenceChanged", player =>
+        {
+            PlayerPresenceChanged?.Invoke(player);
+            _ = HandleOpenOmsiPresenceAsync(player);
+        });
         connection.On<string>("playerLeft", playerId =>
         {
             ForgetRemoteTelemetryOrder(playerId);
             PlayerLeft?.Invoke(playerId);
             RemoveRoleplayCharacter(playerId);
             _ = _physicalVehicles.DespawnAsync(playerId);
-            _ = OpenOmsiLanGateway.Shared.RemoveRemoteAsync(playerId);
             _ = OmsiPluginBridgeRelay.RemoveRemotePlayerAsync(playerId);
         });
         connection.On<PlayerTelemetryFrame>("telemetry", frame =>
@@ -556,31 +569,20 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
                 return;
             }
 
+            // Service-side telemetry remains useful for CCO/company/status.
+            // Never use it for physical movement: openOMSI LAN v6 is now the
+            // single authoritative remote-motion path.
             TelemetryReceived?.Invoke(frame);
-            _ = OmsiPluginBridgeRelay.ForwardRemoteTelemetryAsync(frame);
-            _ = RouteRemotePhysicalTelemetryAsync(frame);
-        });
-        connection.On<TrafficSnapshot>("trafficSnapshot", snapshot =>
-        {
-            if (!string.IsNullOrWhiteSpace(TrafficAuthorityPlayerId) &&
-                !string.Equals(
-                    snapshot.AuthorityPlayerId,
-                    TrafficAuthorityPlayerId,
-                    StringComparison.OrdinalIgnoreCase))
-            {
-                return;
-            }
-
-            TrafficSnapshotReceived?.Invoke(snapshot);
         });
         connection.On<string?>("trafficAuthorityChanged", authorityPlayerId =>
-            SetTrafficAuthority(authorityPlayerId));
+        {
+            SetTrafficAuthority(authorityPlayerId);
+            _ = HandleOpenOmsiAuthorityChangedAsync();
+        });
         connection.On<string?>("roomOwnerChanged", ownerPlayerId =>
             SetRoomOwner(ownerPlayerId));
         connection.On<ChatMessage>("chatMessage", message => ChatMessageReceived?.Invoke(message));
         connection.On<VoiceFrame>("voiceFrame", frame => VoiceFrameReceived?.Invoke(frame));
-        connection.On<RoleplayCharacterFrame>("roleplayCharacter", ApplyRoleplayCharacter);
-        connection.On<string>("roleplayCharacterRemoved", RemoveRoleplayCharacter);
 
         connection.Reconnecting += error =>
         {
@@ -598,6 +600,14 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
             {
                 var snapshot = await connection.InvokeAsync<RoomSnapshot>("JoinRoom", _joinRequest);
                 ApplyRoomSnapshotMetadata(snapshot);
+                lock (_openOmsiV6Sync)
+                {
+                    foreach (var player in snapshot.Players)
+                    {
+                        RememberOpenOmsiPresenceCore(player);
+                    }
+                }
+                await RepublishOpenOmsiV6PresenceAsync();
                 RoomSnapshotReceived?.Invoke(snapshot);
             }
 
@@ -615,204 +625,6 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
             ConnectionStateChanged?.Invoke(HubConnectionState.Disconnected);
             return Task.CompletedTask;
         };
-    }
-
-    private async Task RouteRemotePhysicalTelemetryAsync(
-        PlayerTelemetryFrame frame)
-    {
-        var playerId = frame.Player.PlayerId;
-        if (string.IsNullOrWhiteSpace(playerId))
-        {
-            return;
-        }
-
-        if (OpenOmsiLanGateway.Shared.IsClientConnected)
-        {
-            // SignalR telemetry can arrive at 20 Hz per player. Never queue
-            // multiple filesystem/hash resolutions for the same remote.
-            if (!_openOmsiPhysicalRouteInFlight.TryAdd(
-                    playerId,
-                    0))
-            {
-                return;
-            }
-
-            try
-            {
-                // openOMSI owns the physical renderer through its native LAN v6
-                // client. Never let the OMSI 2 x86 coordinator keep another copy
-                // of the same remote player alive while this backend is active.
-                if (_physicalVehicles.IsSpawned(playerId))
-                {
-                    await _physicalVehicles.DespawnAsync(playerId);
-                }
-
-                var localManifest = _joinRequest?.Compatibility;
-                var remoteManifest = BuildLiveRemoteManifest(frame);
-                var compatibilityReport =
-                    OmsiCompatibilityEvaluator.Compare(
-                        localManifest,
-                        remoteManifest,
-                        requireVehicleForPhysicalMultiplayer: false);
-                if (!compatibilityReport.IsCompatible)
-                {
-                    // Physical rendering must fail closed on a missing/mismatched
-                    // map fingerprint or protocol mismatch. Same display name is
-                    // not enough to prove both clients are in the same world.
-                    await OpenOmsiLanGateway.Shared.RemoveRemoteAsync(
-                        playerId);
-                    return;
-                }
-
-                var compatibilityId =
-                    remoteManifest.VehicleCompatibilityId?.Trim();
-                if (string.IsNullOrWhiteSpace(compatibilityId))
-                {
-                    _openOmsiResolvedVehicleByPlayer.TryRemove(
-                        playerId,
-                        out _);
-                    await OpenOmsiLanGateway.Shared.SetRemotePendingAsync(
-                        frame);
-                    return;
-                }
-
-                var now = DateTimeOffset.UtcNow;
-                string? resolvedVehiclePath = null;
-                if (_openOmsiResolvedVehicleByPlayer.TryGetValue(
-                        playerId,
-                        out var cachedResolution) &&
-                    string.Equals(
-                        cachedResolution.CompatibilityId,
-                        compatibilityId,
-                        StringComparison.OrdinalIgnoreCase) &&
-                    now - cachedResolution.ResolvedAtUtc <=
-                        OpenOmsiVehicleResolutionCacheDuration)
-                {
-                    resolvedVehiclePath =
-                        cachedResolution.RelativePath;
-                }
-                else
-                {
-                    _openOmsiResolvedVehicleByPlayer.TryRemove(
-                        playerId,
-                        out _);
-
-                    if (_openOmsiVehicleResolutionRetryAfterByPlayer
-                            .TryGetValue(
-                                playerId,
-                                out var retryAfter) &&
-                        retryAfter > now)
-                    {
-                        await OpenOmsiLanGateway.Shared
-                            .SetRemotePendingAsync(frame);
-                        return;
-                    }
-
-                    resolvedVehiclePath =
-                        await _openOmsiVehicleAssets.ResolveAsync(
-                            remoteManifest.VehiclePath,
-                            compatibilityId);
-
-                    if (string.IsNullOrWhiteSpace(
-                            resolvedVehiclePath))
-                    {
-                        _openOmsiVehicleResolutionRetryAfterByPlayer[
-                            playerId] =
-                            now +
-                            OpenOmsiVehicleResolutionRetryDelay;
-                        await OpenOmsiLanGateway.Shared
-                            .SetRemotePendingAsync(frame);
-                        return;
-                    }
-
-                    _openOmsiVehicleResolutionRetryAfterByPlayer
-                        .TryRemove(
-                            playerId,
-                            out _);
-                    _openOmsiResolvedVehicleByPlayer[playerId] =
-                        new OpenOmsiResolvedVehicleCacheEntry(
-                            compatibilityId,
-                            resolvedVehiclePath,
-                            now);
-                }
-
-                var resolvedFrame = frame with
-                {
-                    Telemetry = frame.Telemetry with
-                    {
-                        VehiclePath = resolvedVehiclePath,
-                        VehicleCompatibilityId =
-                            compatibilityId
-                    }
-                };
-
-                await OpenOmsiLanGateway.Shared.UpsertRemoteAsync(
-                    resolvedFrame);
-                return;
-            }
-            finally
-            {
-                _openOmsiPhysicalRouteInFlight.TryRemove(
-                    playerId,
-                    out _);
-            }
-        }
-
-        // If the openOMSI client went away and the user returned to OMSI 2,
-        // retire any stale LAN peer before the x86 backend takes ownership.
-        if (OpenOmsiLanGateway.Shared.HasRemote(playerId))
-        {
-            await OpenOmsiLanGateway.Shared.RemoveRemoteAsync(playerId);
-        }
-
-        await _physicalVehicles.ApplyAsync(frame);
-    }
-
-    private static OmsiCompatibilityManifest BuildLiveRemoteManifest(
-        PlayerTelemetryFrame frame)
-    {
-        var telemetry = frame.Telemetry;
-        var reported = frame.Player.Compatibility;
-        if (reported is not null)
-        {
-            return reported with
-            {
-                MapName = telemetry.MapName ?? reported.MapName,
-                MapCompatibilityId =
-                    telemetry.MapCompatibilityId ??
-                    reported.MapCompatibilityId,
-                VehiclePath =
-                    telemetry.VehiclePath ??
-                    reported.VehiclePath,
-                VehicleCompatibilityId =
-                    telemetry.VehicleCompatibilityId ??
-                    reported.VehicleCompatibilityId,
-                HofName =
-                    telemetry.HofName ??
-                    reported.HofName,
-                HofCompatibilityId =
-                    telemetry.HofCompatibilityId ??
-                    reported.HofCompatibilityId
-            };
-        }
-
-        return new OmsiCompatibilityManifest(
-            OmsiVersion: null,
-            NavBRVersion: null,
-            MapName: telemetry.MapName ?? frame.Player.MapName,
-            MapCompatibilityId:
-                telemetry.MapCompatibilityId ??
-                frame.Player.MapCompatibilityId,
-            VehiclePath: telemetry.VehiclePath,
-            VehicleCompatibilityId:
-                telemetry.VehicleCompatibilityId,
-            HofName: telemetry.HofName,
-            HofCompatibilityId:
-                telemetry.HofCompatibilityId,
-            PluginProtocolVersion:
-                PluginBridgeProtocol.Version,
-            PluginDeployment: null,
-            Capabilities: Array.Empty<string>());
     }
 
     private bool TryAcceptRemoteTelemetry(PlayerTelemetryFrame frame)
@@ -874,15 +686,6 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
             _lastRemoteSourceTimestampByPlayer.Remove(playerId);
         }
 
-        _openOmsiResolvedVehicleByPlayer.TryRemove(
-            playerId,
-            out _);
-        _openOmsiVehicleResolutionRetryAfterByPlayer.TryRemove(
-            playerId,
-            out _);
-        _openOmsiPhysicalRouteInFlight.TryRemove(
-            playerId,
-            out _);
     }
 
     private void ClearRemoteTelemetryOrder()
@@ -892,9 +695,6 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
             _lastRemoteSourceTimestampByPlayer.Clear();
         }
 
-        _openOmsiResolvedVehicleByPlayer.Clear();
-        _openOmsiVehicleResolutionRetryAfterByPlayer.Clear();
-        _openOmsiPhysicalRouteInFlight.Clear();
     }
 
     private void ApplyRoomSnapshotMetadata(RoomSnapshot snapshot)
@@ -940,11 +740,6 @@ public sealed partial class MultiplayerClientService : IAsyncDisposable
         RoomOwnerPlayerId = normalized;
         RoomOwnerChanged?.Invoke(normalized);
     }
-
-    private sealed record OpenOmsiResolvedVehicleCacheEntry(
-        string CompatibilityId,
-        string RelativePath,
-        DateTimeOffset ResolvedAtUtc);
 
     private sealed class NavBrReconnectPolicy : IRetryPolicy
     {

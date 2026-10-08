@@ -1,6 +1,6 @@
 using System.Net;
 using System.Net.Sockets;
-using System.Security.Cryptography;
+using System.Reflection;
 using System.Text;
 using NavBR.Client.Multiplayer;
 using NavBR.Server;
@@ -12,13 +12,13 @@ using NavBR.Shared.Telemetry;
 const string mapName = "Grundorf";
 const string mapCompatibilityId =
     "sha256:1111111111111111111111111111111111111111111111111111111111111111";
-const string roomId = "ci-openomsi-signalr-physical";
+const string vehicleCompatibilityId =
+    "sha256:2222222222222222222222222222222222222222222222222222222222222222";
+const string roomId = "ci-openomsi-v6-sidecar";
 const string senderPlayerId = "ci-omsi2-sender";
-const string receiverPlayerId = "ci-openomsi-receiver";
+const string receiverPlayerId = "ci-omsi2-receiver";
 const string reportedVehiclePath =
     @"Vehicles\RemotePack\Remote.bus";
-const string localVehiclePath =
-    @"Vehicles\LocalPack\ResolvedRemote.bus";
 
 var previousWrites =
     Environment.GetEnvironmentVariable(
@@ -27,25 +27,27 @@ var previousBackend =
     Environment.GetEnvironmentVariable(
         "NAVBR_OMSI_PHYSICAL_BACKEND");
 
-var tempRoot = Path.Combine(
+var tempOmsiRoot = Path.Combine(
     Path.GetTempPath(),
-    "NavBR-openOMSI-SignalR-" +
+    "NavBR-openOMSI-v6-kachel-" +
     Guid.NewGuid().ToString("N"));
-Directory.CreateDirectory(
-    Path.Combine(tempRoot, "Vehicles", "LocalPack"));
-
-var localVehicleFullPath =
-    Path.Combine(tempRoot, localVehiclePath);
-var vehicleBytes = Encoding.UTF8.GetBytes(
-    "[friendlyname]\r\nNavBR SignalR openOMSI Smoke\r\n");
-File.WriteAllBytes(
-    localVehicleFullPath,
-    vehicleBytes);
-var vehicleCompatibilityId =
-    "sha256:" +
-    Convert.ToHexString(
-        SHA256.HashData(vehicleBytes))
-    .ToLowerInvariant();
+var mapDirectory =
+    Path.Combine(
+        tempOmsiRoot,
+        "maps",
+        mapName);
+Directory.CreateDirectory(mapDirectory);
+File.WriteAllText(
+    Path.Combine(mapDirectory, "global.cfg"),
+    "[name]\nGrundorf\n\n" +
+    "[map]\n1\n1\ntile_1_1.map\n\n" +
+    "[map]\n2\n1\ntile_2_1.map\n");
+File.WriteAllText(
+    Path.Combine(mapDirectory, "tile_1_1.map"),
+    string.Empty);
+File.WriteAllText(
+    Path.Combine(mapDirectory, "tile_2_1.map"),
+    string.Empty);
 
 var tcpPort = GetFreeTcpPort();
 var serverUrl = $"http://127.0.0.1:{tcpPort}";
@@ -54,14 +56,12 @@ var app = NavBRServerApplication.Build(
 
 MultiplayerClientService? receiver = null;
 MultiplayerClientService? sender = null;
-UdpClient? openOmsiClient = null;
-var gateway = OpenOmsiLanGateway.Shared;
-var gatewayDisposed = false;
+UdpClient? observer = null;
 
 try
 {
-    // Process scope only. ConnectAsync sees the feature as already enabled and
-    // therefore never calls the persistent user-setting writer.
+    // Keep the old feature switch enabled deliberately: this smoke must prove
+    // that SignalR telemetry still does NOT revive the retired physical route.
     Environment.SetEnvironmentVariable(
         "NAVBR_OMSI_EXPERIMENTAL_WRITES",
         "1");
@@ -71,52 +71,14 @@ try
 
     await app.StartAsync();
 
-    gateway.Start();
-    var gatewayPort = gateway.Port ??
-        throw new InvalidOperationException(
-            "openOMSI gateway did not bind a loopback UDP port.");
-    var gatewayEndpoint =
-        new IPEndPoint(
-            IPAddress.Loopback,
-            gatewayPort);
-
-    openOmsiClient = new UdpClient(
-        new IPEndPoint(
-            IPAddress.Loopback,
-            0));
-
-    var hello =
-        "HELLO|6|-|CI openOMSI|" +
-        "Vehicles/LocalPack/Receiver.bus|" +
-        "maps/Grundorf/global.cfg|" +
-        "2026-10-01|36000||autumn|" +
-        "0011223344556677";
-    await SendTextAsync(
-        openOmsiClient,
-        gatewayEndpoint,
-        hello);
-
-    var welcome = await ReceiveUntilTextAsync(
-        openOmsiClient,
-        text => text.StartsWith(
-            "WELCOME|6|2|",
-            StringComparison.Ordinal),
-        TimeSpan.FromSeconds(4));
-    Require(
-        welcome.Contains(
-            "|maps/Grundorf/global.cfg|",
-            StringComparison.Ordinal),
-        "Gateway WELCOME lost the local openOMSI map.");
-
     receiver = new MultiplayerClientService(
-        omsiInstallDirectorySource: null,
-        openOmsiContentRootsSource:
-            () => new[] { tempRoot });
+        omsiInstallDirectorySource:
+            () => tempOmsiRoot);
     sender = new MultiplayerClientService();
 
     var receiverManifest =
         new OmsiCompatibilityManifest(
-            OmsiVersion: "openOMSI",
+            OmsiVersion: "2.3.004",
             NavBRVersion: "ci",
             MapName: mapName,
             MapCompatibilityId:
@@ -128,38 +90,24 @@ try
             PluginProtocolVersion:
                 PluginBridgeProtocol.Version,
             PluginDeployment:
-                "OPENOMSI-X64",
-            Capabilities:
-            [
-                PluginBridgeProtocol
-                    .CapabilityOpenOmsiStandardPlugin
-            ]);
-
-    var senderManifest =
-        new OmsiCompatibilityManifest(
-            OmsiVersion: "2.3.004",
-            NavBRVersion: "ci",
-            MapName: mapName,
-            MapCompatibilityId:
-                mapCompatibilityId,
-            VehiclePath:
-                reportedVehiclePath,
-            VehicleCompatibilityId:
-                vehicleCompatibilityId,
-            HofName: null,
-            HofCompatibilityId: null,
-            PluginProtocolVersion:
-                PluginBridgeProtocol.Version,
-            PluginDeployment:
                 "NATIVE-AOT-X86",
             Capabilities:
                 Array.Empty<string>());
+
+    var senderManifest =
+        receiverManifest with
+        {
+            VehiclePath =
+                reportedVehiclePath,
+            VehicleCompatibilityId =
+                vehicleCompatibilityId
+        };
 
     var receiverSettings =
         MultiplayerSettings.CreateDefault() with
         {
             PlayerId = receiverPlayerId,
-            DisplayName = "CI openOMSI Receiver",
+            DisplayName = "CI OMSI2 Receiver",
             ServerUrl = serverUrl,
             RoomId = roomId,
             ExperimentalPhysicalVehiclesEnabled =
@@ -181,14 +129,95 @@ try
         mapName,
         mapCompatibilityId,
         receiverManifest);
+
+    Require(
+        receiver.IsTrafficAuthority,
+        "First room member did not become the openOMSI v6 authority.");
+    Require(
+        receiver.UsesOpenOmsiV6Transport &&
+        receiver.IsOpenOmsiV6Host,
+        "Receiver did not start the authoritative openOMSI LAN v6 host.");
+
+    var hostPort =
+        receiver.OpenOmsiV6Port ??
+        throw new InvalidOperationException(
+            "openOMSI v6 host did not expose its UDP port.");
+    var hostEndpoint =
+        new IPEndPoint(
+            IPAddress.Loopback,
+            hostPort);
+
+    // A raw observer represents another openOMSI-compatible v6 peer. It
+    // watches the physical wire directly, independently of the SignalR plane.
+    observer = new UdpClient(
+        new IPEndPoint(
+            IPAddress.Loopback,
+            0));
+    var hello =
+        "HELLO|6|-|CI v6 Observer||" +
+        "maps/Grundorf/global.cfg|" +
+        "2026-10-07|0|||0011223344556677";
+    await SendTextAsync(
+        observer,
+        hostEndpoint,
+        hello);
+
+    var welcome =
+        await ReceiveUntilTextAsync(
+            observer,
+            text =>
+                text.StartsWith(
+                    "WELCOME|6|",
+                    StringComparison.Ordinal),
+            TimeSpan.FromSeconds(8));
+    Require(
+        welcome.Contains(
+            "|maps/Grundorf/global.cfg|",
+            StringComparison.Ordinal),
+        "openOMSI v6 host WELCOME lost the room map.");
+
+    var sidecarTelemetry =
+        new TaskCompletionSource<PlayerTelemetryFrame>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+    long expectedSidecarTimestamp = 0;
+
+    receiver.TelemetryReceived += frame =>
+    {
+        if (string.Equals(
+                frame.Player.PlayerId,
+                senderPlayerId,
+                StringComparison.OrdinalIgnoreCase) &&
+            frame.Telemetry.SourceTimestampUnixMilliseconds is long source &&
+            source == expectedSidecarTimestamp)
+        {
+            sidecarTelemetry.TrySetResult(frame);
+        }
+    };
+
     await sender.ConnectAsync(
         senderSettings,
         mapName,
         mapCompatibilityId,
         senderManifest);
 
+    Require(
+        sender.UsesOpenOmsiV6Transport &&
+        !sender.IsOpenOmsiV6Host,
+        "Second OMSI 2 app client did not join the authority's openOMSI v6 transport.");
+    Require(
+        !string.IsNullOrWhiteSpace(
+            receiver.OpenOmsiV6SessionCode) &&
+        string.Equals(
+            receiver.OpenOmsiV6SessionCode,
+            sender.OpenOmsiV6SessionCode,
+            StringComparison.Ordinal),
+        "Host and client did not converge on the same openOMSI v6 session code.");
+
     var firstTimestamp =
         DateTimeOffset.UtcNow;
+    expectedSidecarTimestamp =
+        firstTimestamp.ToUnixTimeMilliseconds();
+
     var firstTelemetry =
         new VehicleTelemetry(
             PlayerId: senderPlayerId,
@@ -232,15 +261,23 @@ try
             PhysicalGridX: 1,
             PhysicalGridY: 1,
             SourceTimestampUnixMilliseconds:
-                firstTimestamp
-                    .ToUnixTimeMilliseconds());
+                expectedSidecarTimestamp);
 
     await sender.PublishTelemetryAsync(
         firstTelemetry);
 
+    var sidecarFrame =
+        await sidecarTelemetry.Task.WaitAsync(
+            TimeSpan.FromSeconds(8));
+    Require(
+        sidecarFrame.Telemetry.X == firstTelemetry.X &&
+        sidecarFrame.Telemetry.Y == firstTelemetry.Y &&
+        sidecarFrame.Telemetry.Z == firstTelemetry.Z,
+        "SignalR sidecar changed the service telemetry payload.");
+
     var infoText =
         await ReceiveUntilTextAsync(
-            openOmsiClient,
+            observer,
             text =>
                 text.StartsWith(
                     "INFO|",
@@ -253,22 +290,22 @@ try
         OpenOmsiLanProtocol.TryDecodeInfo(
             infoText,
             out var remoteInfo),
-        "SignalR-routed openOMSI INFO did not decode.");
+        "openOMSI v6 INFO from the OMSI 2 sender did not decode.");
     Require(
         remoteInfo.VehiclePath ==
-            "Vehicles/LocalPack/ResolvedRemote.bus",
-        $"Remote SHA was not relocated to the receiver-local bus path. Got '{remoteInfo.VehiclePath}'.");
+            "Vehicles/RemotePack/Remote.bus",
+        $"openOMSI v6 INFO changed the sender bus path. Got '{remoteInfo.VehiclePath}'.");
     Require(
         remoteInfo.Line == "76",
-        "SignalR route lost remote line.");
+        "openOMSI v6 INFO lost remote line.");
     Require(
         remoteInfo.Destination ==
             "Rathaus Spandau",
-        "SignalR route lost remote destination.");
+        "openOMSI v6 INFO lost remote destination.");
 
     var firstStateBytes =
         await ReceiveUntilBytesAsync(
-            openOmsiClient,
+            observer,
             bytes =>
                 IsStateFor(
                     bytes,
@@ -278,10 +315,10 @@ try
         OpenOmsiLanStateCodec.TryDecode(
             firstStateBytes,
             out var firstState),
-        "SignalR-routed openOMSI STATE did not decode.");
+        "openOMSI v6 STATE from the OMSI 2 sender did not decode.");
 
-    // Sender is OMSI 2/D3D: X stays X, OMSI Z becomes openOMSI ground Y,
-    // and OMSI Y becomes openOMSI vertical Z.
+    // OMSI 2/D3D -> openOMSI: X stays X, OMSI Z is ground Y,
+    // and OMSI Y is vertical Z.
     Near(
         firstState.X,
         325.0,
@@ -304,11 +341,124 @@ try
         "first state heading");
     Require(
         firstState.TurnSignal == 2,
-        "SignalR route lost right indicator.");
+        "openOMSI v6 STATE lost right indicator.");
     Require(
         firstState.Doors.Count >= 2 &&
         firstState.Doors[1] > 0.99f,
-        "SignalR route lost middle door state.");
+        "openOMSI v6 STATE lost middle door state.");
+
+    var physicalFrameBuilder =
+        typeof(MultiplayerClientService).GetMethod(
+            "TryBuildOpenOmsiPhysicalFrame",
+            BindingFlags.Instance |
+            BindingFlags.NonPublic)
+        ?? throw new InvalidOperationException(
+            "openOMSI v6 physical Kachel converter not found");
+
+    var articulatedState =
+        firstState with
+        {
+            RearSections =
+            [
+                new OpenOmsiLanPartPose(
+                    605.0,
+                    450.0,
+                    1.55,
+                    50f)
+            ]
+        };
+    object?[] physicalArgs =
+    [
+        sidecarFrame,
+        articulatedState,
+        null
+    ];
+    var physicalResolved =
+        (bool)(physicalFrameBuilder.Invoke(
+            receiver,
+            physicalArgs) ?? false);
+    var physicalFrame =
+        physicalArgs[2] as PlayerTelemetryFrame;
+
+    Require(
+        physicalResolved &&
+        physicalFrame is not null,
+        "openOMSI v6 world pose did not resolve into OMSI Kachel coordinates.");
+    Require(
+        physicalFrame!.Telemetry.PhysicalGridX == 1 &&
+        physicalFrame.Telemetry.PhysicalGridY == 1,
+        "Front section resolved to the wrong OMSI Kachel.");
+    Near(
+        physicalFrame.Telemetry.LocalX ?? double.NaN,
+        25.0,
+        0.02,
+        "front local x");
+    Near(
+        physicalFrame.Telemetry.LocalY ?? double.NaN,
+        1.5,
+        0.02,
+        "front local y");
+    Near(
+        physicalFrame.Telemetry.LocalZ ?? double.NaN,
+        142.0,
+        0.02,
+        "front local z");
+
+    var convertedRear =
+        physicalFrame.Telemetry.RearSections ??
+        Array.Empty<VehicleSectionPose>();
+    Require(
+        convertedRear.Length == 1 &&
+        convertedRear[0].GridX == 2 &&
+        convertedRear[0].GridY == 1,
+        "RearSection did not resolve independently onto Kachel 2,1.");
+    Near(
+        convertedRear[0].LocalX,
+        5.0,
+        0.02,
+        "rear local x");
+    Near(
+        convertedRear[0].LocalY,
+        1.55,
+        0.02,
+        "rear local y");
+    Near(
+        convertedRear[0].LocalZ,
+        150.0,
+        0.02,
+        "rear local z");
+
+    var unresolvedRearState =
+        articulatedState with
+        {
+            RearSections =
+            [
+                new OpenOmsiLanPartPose(
+                    905.0,
+                    450.0,
+                    1.55,
+                    50f)
+            ]
+        };
+    object?[] unresolvedArgs =
+    [
+        sidecarFrame,
+        unresolvedRearState,
+        null
+    ];
+    Require(
+        !(bool)(physicalFrameBuilder.Invoke(
+            receiver,
+            unresolvedArgs) ?? true) &&
+        unresolvedArgs[2] is null,
+        "Articulated v6 frame was admitted with an unresolved RearSection Kachel.");
+
+    var legacyGateway =
+        OpenOmsiLanGateway.Shared.GetStatus();
+    Require(
+        !legacyGateway.Running &&
+        legacyGateway.Remotes.Count == 0,
+        "SignalR telemetry revived the retired NavBR physical LAN gateway.");
 
     var secondTimestamp =
         firstTimestamp +
@@ -335,7 +485,7 @@ try
 
     var secondStateBytes =
         await ReceiveUntilBytesAsync(
-            openOmsiClient,
+            observer,
             bytes =>
             {
                 if (!IsStateFor(
@@ -359,7 +509,7 @@ try
         OpenOmsiLanStateCodec.TryDecode(
             secondStateBytes,
             out var secondState),
-        "Second SignalR-routed STATE did not decode.");
+        "Second openOMSI v6 STATE did not decode.");
     Near(
         secondState.X,
         331.25,
@@ -383,72 +533,32 @@ try
     Require(
         secondState.Sequence !=
             firstState.Sequence,
-        "Second remote STATE reused the first sequence.");
-
-    var gatewayStatus =
-        gateway.GetStatus();
-    var routedRemote =
-        gatewayStatus.Remotes.SingleOrDefault(
-            remote =>
-                remote.PlayerId ==
-                    senderPlayerId);
-    Require(
-        routedRemote is not null,
-        "SignalR sender was not registered in the openOMSI gateway.");
-    Require(
-        routedRemote!.HasInfo &&
-        routedRemote.HasState,
-        "SignalR sender never became materializable in the gateway.");
-    Require(
-        string.Equals(
-            routedRemote.VehiclePath,
-            localVehiclePath.Replace('\\', '/'),
-            StringComparison.OrdinalIgnoreCase),
-        "Gateway did not retain the receiver-local resolved bus path.");
-    Require(
-        string.Equals(
-            routedRemote
-                .ExpectedVehicleCompatibilityId,
-            vehicleCompatibilityId,
-            StringComparison.OrdinalIgnoreCase),
-        "Gateway lost the authoritative remote vehicle SHA.");
+        "Second openOMSI v6 STATE reused the first sequence.");
 
     await sender.DisconnectAsync();
 
-    var bye = await ReceiveUntilTextAsync(
-        openOmsiClient,
-        text =>
-            text ==
-            $"BYE|{remoteInfo.PlayerId}",
-        TimeSpan.FromSeconds(8));
+    var bye =
+        await ReceiveUntilTextAsync(
+            observer,
+            text =>
+                text ==
+                $"BYE|{remoteInfo.PlayerId}",
+            TimeSpan.FromSeconds(8));
     Require(
         bye ==
             $"BYE|{remoteInfo.PlayerId}",
-        "SignalR playerLeft did not become openOMSI BYE.");
-
-    var removalDeadline =
-        DateTimeOffset.UtcNow +
-        TimeSpan.FromSeconds(3);
-    while (gateway.GetStatus().Remotes.Any(
-               remote =>
-                   remote.PlayerId ==
-                       senderPlayerId) &&
-           DateTimeOffset.UtcNow <
-               removalDeadline)
-    {
-        await Task.Delay(20);
-    }
+        "openOMSI v6 sender disconnect did not relay BYE.");
 
     Require(
-        gateway.GetStatus().Remotes.All(
-            remote =>
-                remote.PlayerId !=
-                    senderPlayerId),
-        "Disconnected SignalR player remained in openOMSI gateway diagnostics.");
+        OpenOmsiLanGateway.Shared
+            .GetStatus()
+            .Remotes.Count == 0,
+        "Retired physical gateway gained remotes after disconnect.");
 
     Console.WriteLine(
-        "SignalR -> NavBR client -> SHA resolver -> openOMSI LAN v6 smoke passed: " +
-        "remote path relocation + D3D axis conversion + two STATE updates + BYE.");
+        "SignalR sidecar + openOMSI LAN v6 smoke passed: " +
+        "service telemetry stayed on SignalR, physical INFO/STATE/BYE stayed on v6, " +
+        "and the retired NavBR physical gateway remained inactive.");
 }
 finally
 {
@@ -462,20 +572,7 @@ finally
         await receiver.DisposeAsync();
     }
 
-    if (!gatewayDisposed)
-    {
-        try
-        {
-            await gateway.DisposeAsync();
-        }
-        catch
-        {
-        }
-
-        gatewayDisposed = true;
-    }
-
-    openOmsiClient?.Dispose();
+    observer?.Dispose();
 
     try
     {
@@ -497,13 +594,14 @@ finally
     try
     {
         Directory.Delete(
-            tempRoot,
+            tempOmsiRoot,
             recursive: true);
     }
     catch
     {
     }
 }
+
 
 static int GetFreeTcpPort()
 {

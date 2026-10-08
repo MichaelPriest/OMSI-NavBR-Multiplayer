@@ -25,6 +25,7 @@ public partial class HudOverlayWindow
     {
         _cameraProjection = projection;
         RenderRemoteNameplates();
+        RenderGroundRouteGuidance();
     }
 
     public void SetRemotePhysicalVehicleActive(string playerId, bool active)

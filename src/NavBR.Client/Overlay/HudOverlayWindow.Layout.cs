@@ -16,6 +16,7 @@ public partial class HudOverlayWindow
     private Point _hudDragStartMouse;
     private Point _hudDragStartPosition;
     private double _renderedHudZoom = 1d;
+    private double _renderedHudHeadingDegrees = double.NaN;
     private Button? _mainHudLayoutButton;
 
     public bool IsLayoutEditMode => _hudLayoutEditMode;
@@ -26,6 +27,7 @@ public partial class HudOverlayWindow
     {
         _hudLayoutEditMode = enabled;
         HudMoveHandle.Visibility = enabled ? Visibility.Visible : Visibility.Collapsed;
+        MiniMapZoomText.Visibility = enabled ? Visibility.Visible : Visibility.Collapsed;
         SetInteractive(enabled || _chatInteractive);
 
         if (enabled)
@@ -290,17 +292,48 @@ public partial class HudOverlayWindow
 
     private double GetSmoothedHudZoom(VehicleTelemetry? telemetry)
     {
-        var speedFactor = telemetry?.SpeedKph switch
-        {
-            < 15d => 1.18d,
-            < 35d => 1.08d,
-            > 70d => 0.82d,
-            > 50d => 0.92d,
-            _ => 1d
-        };
-        var target = Math.Clamp(_hudSettings.HudZoom * speedFactor, 0.65d, 10d);
-        _renderedHudZoom += (target - _renderedHudZoom) * 0.16d;
+        var speedFactor = ComputeHudSpeedZoomFactor(telemetry?.SpeedKph);
+        var target = Math.Clamp(
+            _hudSettings.HudZoom * speedFactor,
+            0.65d,
+            10d);
+        _renderedHudZoom +=
+            (target - _renderedHudZoom) * 0.18d;
         MiniMapZoomText.Text = $"{_renderedHudZoom:F1}×";
         return _renderedHudZoom;
+    }
+
+    private static double ComputeHudSpeedZoomFactor(double? speedKph)
+    {
+        var speed =
+            speedKph is double raw &&
+            double.IsFinite(raw)
+                ? Math.Clamp(Math.Abs(raw), 0d, 100d)
+                : 0d;
+
+        // Continuous speed-sensitive field of view, matching the behavior of
+        // modern/openOMSI-style navigation: close at low speed, progressively
+        // wider as speed increases.
+        return Math.Clamp(
+            1.18d - speed * 0.005d,
+            0.72d,
+            1.18d);
+    }
+
+    private double GetSmoothedHudHeading(double headingDegrees)
+    {
+        var target = NormalizeAngle(headingDegrees);
+        if (!double.IsFinite(_renderedHudHeadingDegrees))
+        {
+            _renderedHudHeadingDegrees = target;
+            return target;
+        }
+
+        var delta =
+            ((target - _renderedHudHeadingDegrees + 540d) % 360d) - 180d;
+        _renderedHudHeadingDegrees =
+            NormalizeAngle(
+                _renderedHudHeadingDegrees + delta * 0.42d);
+        return _renderedHudHeadingDegrees;
     }
 }

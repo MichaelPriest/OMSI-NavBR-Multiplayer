@@ -161,13 +161,13 @@ public static class OpenOmsiLanStateCodec
 
         if ((flags & OpenOmsiLanProtocol.FlagVehicle) == 0)
         {
-            if (!TryGetWalker(reader, out var walker))
+            if (!TryGetWalker(ref reader, out var walker))
             {
                 return false;
             }
 
             decoded = decoded with { Walker = walker };
-            TryGetTail(reader, decoded, out decoded);
+            TryGetTail(ref reader, decoded, out decoded);
             state = decoded;
             return true;
         }
@@ -299,7 +299,7 @@ public static class OpenOmsiLanStateCodec
             values[index] = FromHalfBits((ushort)bits);
         }
 
-        if (!TryGetWalker(reader, out var vehicleWalker))
+        if (!TryGetWalker(ref reader, out var vehicleWalker))
         {
             return false;
         }
@@ -330,7 +330,7 @@ public static class OpenOmsiLanStateCodec
             Walker = vehicleWalker
         };
 
-        TryGetTail(reader, decoded, out decoded);
+        TryGetTail(ref reader, decoded, out decoded);
         state = decoded;
         return true;
     }
@@ -359,7 +359,7 @@ public static class OpenOmsiLanStateCodec
     }
 
     private static bool TryGetWalker(
-        BitReader reader,
+        ref BitReader reader,
         out OpenOmsiLanWalker? walker)
     {
         walker = null;
@@ -448,7 +448,7 @@ public static class OpenOmsiLanStateCodec
     }
 
     private static bool TryGetTail(
-        BitReader reader,
+        ref BitReader reader,
         OpenOmsiLanVehicleState source,
         out OpenOmsiLanVehicleState result)
     {

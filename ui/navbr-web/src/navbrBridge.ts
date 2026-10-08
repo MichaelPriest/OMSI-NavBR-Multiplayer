@@ -27,6 +27,8 @@ export interface NavBrPlayer {
   physicalVehiclePartCount?: number | null;
   physicalVehicleExpectedPartCount?: number | null;
   physicalVehicleUpdatedAtUtc?: string | null;
+  openOmsiVisualSyncStatus?: "none" | "pending" | "basic" | "compatible" | "mismatch" | null;
+  openOmsiVisualSyncHash?: string | null;
   physicalTelemetryGridX?: number | null;
   physicalTelemetryGridY?: number | null;
   physicalTelemetryNavigationGridX?: number | null;
@@ -124,6 +126,14 @@ export interface NavBrMultiplayerState {
   relayServerUrl: string;
   physicalVehiclesEnabled: boolean;
   physicalVehiclesAvailable: boolean;
+  openOmsiV6: {
+    active: boolean;
+    isHost: boolean;
+    port?: number | null;
+    sessionCode?: string | null;
+    webSocketUrl?: string | null;
+    role: "offline" | "host" | "client";
+  };
   networkQuality: {
     level: string;
     roundTripMs?: number | null;
@@ -140,7 +150,15 @@ export interface NavBrMultiplayerState {
     isRoomOwner: boolean;
     isTrafficAuthority: boolean;
   };
-  transportMode: "none" | "direct-host" | "remote-host" | "relay" | "dedicated-server";
+  transportMode:
+    | "none"
+    | "openomsi-host"
+    | "openomsi-client"
+    | "service-sidecar-only"
+    | "direct-host"
+    | "remote-host"
+    | "relay"
+    | "dedicated-server";
   roomCompatibility: {
     level: "none" | "waiting" | "compatible" | "partial" | "warning" | "blocked";
     remoteCount: number;
@@ -191,6 +209,7 @@ export interface NavBrPublicRoom {
 export interface NavBrRoomDirectory {
   serverUrl?: string | null;
   error?: string | null;
+  refreshing: boolean;
   rooms: NavBrPublicRoom[];
 }
 
@@ -486,9 +505,14 @@ export interface NavBrHudState {
   showAlerts: boolean;
   showSideIndicators: boolean;
   minimapScale: number;
+  mapZoom: number;
+  minimapStyle: "rectangular" | "circular";
   multiplayerScale: number;
   alertsScale: number;
   sideIndicatorsScale: number;
+  telematrixEnabled: boolean;
+  telematrixTheme: number;
+  telematrixSize: number;
   presets: NavBrHudPreset[];
   themes: { id: string; displayName: string }[];
   anchors: { id: string; displayName: string }[];
@@ -496,6 +520,33 @@ export interface NavBrHudState {
 
 export interface NavBrSystemState {
   installationsNotice?: string | null;
+  runtimeHost: {
+    nativeHostMode: boolean;
+    telemetryPollIntervalMilliseconds: number;
+    telemetryLastReadMilliseconds: number;
+    telemetryAverageReadMilliseconds: number;
+    hudRefreshIntervalMilliseconds: number;
+  };
+  applicationUpdate?: {
+    status: "idle" | "checking" | "current" | "available" | "downloading" | "verifying" | "ready" | "installing" | "offline" | "failed";
+    currentVersion: string;
+    availableVersion?: string | null;
+    releaseUrl?: string | null;
+    progressPercent?: number | null;
+    downloadedBytes?: number | null;
+    totalBytes?: number | null;
+    releaseNotes?: string | null;
+    updateAvailable: boolean;
+    readyToInstall: boolean;
+    checkedAtUtc?: string | null;
+    message?: string | null;
+    lastInstalledFromVersion?: string | null;
+    lastInstalledToVersion?: string | null;
+    lastInstallCompletedAtUtc?: string | null;
+    channel: "alpha" | "stable";
+    checkAtStartup: boolean;
+    autoDownload: boolean;
+  } | null;
   mobileCompanion: {
     running: boolean;
     port: number;
@@ -525,26 +576,6 @@ export interface NavBrSystemState {
     message?: string | null;
     files: Array<{ name: string; exists: boolean; hashMatches: boolean }>;
     omsiRunning: boolean;
-  };
-  openOmsiPlugin: {
-    state: "package-missing" | "openomsi-not-found" | "missing" | "partial" | "outdated" | "ready" | "error";
-    executablePath?: string | null;
-    contentRoot?: string | null;
-    pluginDirectory?: string | null;
-    embeddedPackageAvailable: boolean;
-    installAvailable: boolean;
-    installBlockReason?: "package-missing" | "openomsi-not-found" | "openomsi-running" | null;
-    verificationAvailable: boolean;
-    updateRequired: boolean;
-    expectedVersion?: string | null;
-    installedVersion?: string | null;
-    requiredFilesFound: number;
-    requiredFilesTotal: number;
-    verifiedFiles: number;
-    checkedAtUtc: string;
-    message?: string | null;
-    files: Array<{ name: string; exists: boolean; hashMatches: boolean }>;
-    running: boolean;
   };
   openOmsiLanGateway: {
     running: boolean;
@@ -747,6 +778,10 @@ export interface NavBrHardwareState {
   lastError?: string | null;
   lastFrameSentAtUtc?: string | null;
   payloadPreview?: string | null;
+  selectedPortAvailable: boolean;
+  reconnectPending: boolean;
+  retryAttempt: number;
+  nextReconnectAtUtc?: string | null;
   telemetry?: {
     line?: string | null;
     route?: string | null;
@@ -784,6 +819,7 @@ export interface NavBrRoleplayState {
   runtimeAvailable: boolean;
   active: boolean;
   terrainFollowing: boolean;
+  cameraRelativeMovement: boolean;
   nativeAnimation?: {
     aiMode: number;
     aiModeEx: number;
@@ -983,6 +1019,10 @@ export interface NavBrState {
 }
 
 export type NavBrCommand =
+  | "checkApplicationUpdate"
+  | "downloadApplicationUpdate"
+  | "saveApplicationUpdatePreferences"
+  | "installApplicationUpdate"
   | "launchOmsi"
   | "refreshState"
   | "setLanguage"
@@ -1046,11 +1086,6 @@ export type NavBrCommand =
   | "cancelDriverProfileImport"
   | "verifyOmsiPlugin"
   | "installOmsiPlugin"
-  | "selectOpenOmsiExecutable"
-  | "launchOpenOmsiNavBrGateway"
-  | "verifyOpenOmsiPlugin"
-  | "installOpenOmsiPlugin"
-  | "removeOpenOmsiPlugin"
   | "discoverOmsiProfiles"
   | "selectOmsiFolder"
   | "selectOmsiExecutable"
@@ -1064,6 +1099,7 @@ export type NavBrCommand =
   | "purgeDiagnostics"
   | "openFeedback"
   | "exportSessionHealth"
+  | "exportDiagnosticBundle"
   | "setPerformanceProfile"
   | "saveLegacyPreferences"
   | "completeFirstRun"

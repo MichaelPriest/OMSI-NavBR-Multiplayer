@@ -18,6 +18,12 @@ EXPORTS
     NavBR_GetRoadVehicleMaterializationFlags
     NavBR_ReadRoadVehicleRenderDiagnostics
     NavBR_ReadRoadVehiclePathDiagnostics
+    NavBR_GetRoadVehiclePublicVarCount
+    NavBR_ReadRoadVehiclePublicVar
+    NavBR_GetRoadVehicleStringVarCount
+    NavBR_ReadRoadVehicleStringVarUtf16
+    NavBR_WriteRoadVehicleStringVarUtf16
+    NavBR_WriteRoadVehiclePublicVar
     NavBR_IsRoadVehiclePointer
     NavBR_IsMapTileIndexValid
     NavBR_ResolveMapTileIndex

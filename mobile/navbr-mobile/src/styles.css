@@ -52,3 +52,36 @@
 @media(max-width:390px){.ops-actions.three{grid-template-columns:1fr}.ops-hero h2{font-size:26px}.ops-speed strong{font-size:36px}}
 @media(min-width:700px){.ops-grid{grid-template-columns:repeat(4,minmax(0,1fr))}.ops-control-card{padding:18px}}
 .ops-manual{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;margin-top:10px;padding-top:10px;border-top:1px solid #173943}.ops-manual label{display:grid;gap:5px;color:#719087;font-size:9px;font-weight:900;letter-spacing:.1em}.ops-manual input{min-width:0;border:1px solid #2a4d58;border-radius:11px;background:#081922;color:#e9fbf6;padding:11px 12px;font-size:14px}.ops-direction{display:grid;grid-template-columns:repeat(3,auto);gap:6px;align-items:end}.ops-direction button{min-width:52px;height:42px;border:1px solid #2a4d58;border-radius:10px;background:#0a1b24;color:#d8edf1;font-weight:900}.ops-direction button.active-control{border-color:#34795f;background:#0b261d;color:#8ce8bd}@media(max-width:460px){.ops-manual{grid-template-columns:1fr}.ops-direction{grid-template-columns:repeat(3,1fr)}}
+
+
+/* Real OMSI roadmap layer */
+.route-map .roadmap-image {
+  opacity:.92;
+  pointer-events:none;
+}
+.route-map .route-line {
+  filter:drop-shadow(0 0 2px rgba(0,0,0,.85));
+}
+.route-map .rejoin-line {
+  filter:drop-shadow(0 0 2px rgba(0,0,0,.85));
+}
+.route-stop {
+  fill:#d9edf8;
+  stroke:#06151f;
+  stroke-width:2;
+  vector-effect:non-scaling-stroke;
+}
+.route-stop.next {
+  fill:#ffad39;
+  stroke:#fff1d7;
+  stroke-width:2.4;
+}
+.route-stop-label {
+  fill:#fff;
+  font-size:16px;
+  font-weight:800;
+  paint-order:stroke;
+  stroke:#07131b;
+  stroke-width:4px;
+  stroke-linejoin:round;
+}

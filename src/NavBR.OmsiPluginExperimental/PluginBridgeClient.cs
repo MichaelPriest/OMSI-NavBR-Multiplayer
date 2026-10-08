@@ -173,6 +173,8 @@ internal static class PluginBridgeClient
         long? pluginFrameStallCount = null,
         string? performanceProfile = null)
     {
+        LocalVehicleVarsSampler.Sample();
+
         int? physicalGridX = null;
         int? physicalGridY = null;
         int? physicalMapTileIndex = null;
@@ -442,6 +444,17 @@ internal static class PluginBridgeClient
                 }
             }
 
+            var localVars = LocalVehicleVarsSampler.TakePending();
+            if (localVars is not null)
+            {
+                var varsJson = SerializeMessage(localVars);
+                if (varsJson.Length <= PluginBridgeProtocol.MaxMessageChars)
+                {
+                    await writer.WriteLineAsync(varsJson.AsMemory(), cancellationToken);
+                    wroteMessage = true;
+                }
+            }
+
             if (wroteMessage)
             {
                 await writer.FlushAsync(cancellationToken);
@@ -469,6 +482,21 @@ internal static class PluginBridgeClient
         if (string.Equals(message.Type, PluginBridgeProtocol.LocalVehicleState, StringComparison.Ordinal))
         {
             SetLocalState(IsValidLocalState(message) ? message : null);
+            return null;
+        }
+
+        if (string.Equals(
+                message.Type,
+                PluginBridgeProtocol.ConfigureLocalVehicleVars,
+                StringComparison.Ordinal))
+        {
+            if (!LocalVehicleVarsSampler.Configure(
+                    message,
+                    out var localVarsRejection))
+            {
+                Log(
+                    $"local-vars-config rejeitado reason={localVarsRejection ?? "unknown"}");
+            }
             return null;
         }
 
@@ -506,12 +534,55 @@ internal static class PluginBridgeClient
         if (string.Equals(message.Type, PluginBridgeProtocol.RemoteVehicleRemoved, StringComparison.Ordinal))
         {
             RemoteVehicles.Remove(message.PlayerId);
+            RemoteVehicleVarsRegistry.Remove(message.PlayerId);
             PhysicalVehicleLifecycleSupervisor.RequestRemoteRemoval(message.PlayerId);
+            return null;
+        }
+
+        if (string.Equals(message.Type, PluginBridgeProtocol.RemoteVehicleVars, StringComparison.Ordinal))
+        {
+            if (!RemoteVehicleVarsRegistry.TryApply(message, out var rejectionReason))
+            {
+                Log($"remote-vars rejeitado player={message.PlayerId ?? "-"} reason={rejectionReason ?? "unknown"}");
+            }
             return null;
         }
 
         if (string.Equals(message.Type, PluginBridgeProtocol.RemoteVehicleState, StringComparison.Ordinal))
         {
+            var admittedIdentity =
+                !string.IsNullOrWhiteSpace(message.PlayerId) &&
+                !string.IsNullOrWhiteSpace(message.VehicleInstanceId) &&
+                string.Equals(
+                    message.PlayerId,
+                    message.VehicleInstanceId,
+                    StringComparison.OrdinalIgnoreCase);
+            if (admittedIdentity)
+            {
+                RemoteVehicleVarsRegistry.ObserveAdmittedVehicleIdentity(
+                    message.PlayerId,
+                    message.VehiclePath);
+            }
+
+            if (message.SyncTableHash is uint)
+            {
+                if (!RemoteVehicleVarsRegistry.TryApplyVisualState(
+                        message,
+                        out var visualRejection))
+                {
+                    RemoteVehicleVarsRegistry.ClearVisualState(
+                        message.PlayerId);
+                    Log(
+                        $"remote-visual-sync rejeitado player={message.PlayerId ?? "-"} " +
+                        $"reason={visualRejection ?? "unknown"}");
+                }
+            }
+            else
+            {
+                RemoteVehicleVarsRegistry.ClearVisualState(
+                    message.PlayerId);
+            }
+
             if (RemoteVehicles.Upsert(message))
             {
                 // The state stream already contains the exact bus path, local
@@ -614,6 +685,8 @@ internal static class PluginBridgeClient
     {
         SetLocalState(null);
         RemoteVehicles.Clear();
+        RemoteVehicleVarsRegistry.Clear();
+        LocalVehicleVarsSampler.Clear();
         TrafficVehicles.Clear();
         OmsiThreadCommandQueue.Clear();
         // The pipe worker cannot touch OMSI objects directly. Ask the callback
@@ -652,6 +725,8 @@ internal static class PluginBridgeClient
         var built = ExperimentalVehicleCommandProcessor
             .GetCapabilities()
             .Append(PluginBridgeProtocol.CapabilityPerformanceGovernor)
+            .Append(PluginBridgeProtocol.CapabilityRemoteScriptVars)
+            .Append(PluginBridgeProtocol.CapabilityLocalScriptVars)
             .Distinct(StringComparer.Ordinal)
             .ToArray();
         Interlocked.CompareExchange(

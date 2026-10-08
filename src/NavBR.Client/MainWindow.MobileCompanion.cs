@@ -13,6 +13,22 @@ public partial class MainWindow
 {
     private DispatcherTimer? _mobilePttLeaseTimer;
 
+    internal string? ResolveMobileCompanionRoadmapPath()
+    {
+        if (!Dispatcher.CheckAccess())
+        {
+            return Dispatcher.Invoke(ResolveMobileCompanionRoadmapPath);
+        }
+
+        var map = GetActiveMapForOperations();
+        if (map is null)
+        {
+            return null;
+        }
+
+        return ResolveWebNavigationRoadmapPath(map);
+    }
+
     internal Task<object> BuildMobileCompanionStateAsync()
     {
         if (Dispatcher.CheckAccess())
