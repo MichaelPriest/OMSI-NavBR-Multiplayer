@@ -431,12 +431,16 @@ public partial class MainWindow
                 "conectando ao último servidor/sala...");
             UpdateHudInGamePanelState();
 
+            // Use the actual fields entered in the in-game menu. Passing
+            // null retains the saved setting for backwards compatibility.
+            var inputs = _hudOverlay?.GetInGameConnectionParameters();
             await _multiplayerWindow.ConnectFromWebAsync(
-                serverUrl: null,
-                roomId: null,
-                displayName: null,
-                roomPassword: null);
+                serverUrl: inputs?.ServerUrl,
+                roomId: inputs?.RoomId,
+                displayName: inputs?.DisplayName,
+                roomPassword: inputs?.RoomPassword);
 
+            _hudOverlay?.ClearInGameRoomPassword();
             _hudOverlay?.SetInGameConnectionNotice(null);
         }
         catch (Exception ex)
