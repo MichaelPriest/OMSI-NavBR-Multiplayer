@@ -873,11 +873,11 @@ await using (var client = new OpenOmsiLanPeerSession())
             clientAtHost.Switches.Count == 2 &&
             clientAtHost.Values.Count == 2,
         "peer client visual SyncTable cardinality missing");
-    // STATE encodes doors as 4-bit units (0..15), so 0.5 rounds to
-    // 8/15. Lamps have only 2-bit units (0..3): 0.25 rounds to 1/3.
-    // Keep strict tolerances to catch genuine regressions in the codec.
-    Near(clientAtHost.Doors[1], 8f / 15f, 0.01,
-        "peer client middle door 4-bit quantization");
+    // The v6 STATE tail overrides coarse 4-bit doors with 8-bit units:
+    // 0.5 rounds to 128/255. Lamps use 2-bit units: 0.25 rounds to 1/3.
+    // Assert the fine-door tail and quantized lamp without relaxing checks.
+    Near(clientAtHost.Doors[1], 128f / 255f, 0.005,
+        "peer client middle door 8-bit tail precision");
     Near(clientAtHost.Lamps[1], 1f / 3f, 0.01,
         "peer client lamp intensity 2-bit quantization");
     Require(clientAtHost.Switches[1] == -1f,
