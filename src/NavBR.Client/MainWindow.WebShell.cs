@@ -371,6 +371,11 @@ public partial class MainWindow
             displayName = settings.DisplayName,
             hostRunning = false,
             hostPort = null as int?,
+            hostReachability = "inactive",
+            internetInviteAddress = null as string,
+            upnpMapped = false,
+            upnpMessage = null as string,
+            externalProbeConfigured = false,
             roomIsPrivate = false,
             inviteAddresses = Array.Empty<string>(),
             latencyMs = null as double?,
@@ -405,6 +410,15 @@ public partial class MainWindow
             relayEnabled = settings.EnableApplicationRelay,
             physicalVehiclesEnabled = settings.ExperimentalPhysicalVehiclesEnabled,
             physicalVehiclesAvailable = false,
+            openOmsiV6 = new
+            {
+                active = false,
+                isHost = false,
+                port = null as int?,
+                sessionCode = null as string,
+                webSocketUrl = null as string,
+                role = "offline"
+            },
             networkQuality = new
             {
                 level = "Unknown",
