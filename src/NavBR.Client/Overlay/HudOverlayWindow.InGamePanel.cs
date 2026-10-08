@@ -22,6 +22,9 @@ public partial class HudOverlayWindow
     private ComboBox? _inGameHudModeCombo;
     private ComboBox? _inGameHudSingleWidgetCombo;
     private ComboBox? _inGamePerformanceCombo;
+    private ComboBox? _inGameChatHotkeyCombo;
+    private ComboBox? _inGameVoiceHotkeyCombo;
+    private TextBlock? _inGameHotkeyStatusText;
     private CheckBox? _inGameGroundGuidanceToggle;
     private TextBlock? _inGameGroundGuidanceStatusText;
     private CheckBox? _inGameFreeRoamToggle;
@@ -1159,6 +1162,73 @@ public partial class HudOverlayWindow
                 "Sprache und physische Präsenz anderer Fahrer",
                 "Voix et présence physique des autres conducteurs"),
             onlineControls));
+        // Chat/PTT shortcuts are configurable from the OMSI overlay itself.
+        // The existing keyboard.cfg scanner remains authoritative: selecting
+        // a conflicting binding does not enable that binding in the game.
+        var keyOptions = NavBRHotkeyCatalog.Options
+            .Select(option => new InGameChoice(option.Name, option.Name))
+            .ToArray();
+        _inGameChatHotkeyCombo = BuildInGameCombo();
+        _inGameChatHotkeyCombo.ItemsSource = keyOptions;
+        _inGameChatHotkeyCombo.DisplayMemberPath = nameof(InGameChoice.Label);
+        _inGameChatHotkeyCombo.SelectedValuePath = nameof(InGameChoice.Id);
+        _inGameChatHotkeyCombo.SelectionChanged += (_, _) =>
+        {
+            if (_inGameControlsLoading ||
+                _inGameChatHotkeyCombo.SelectedValue is not string shortcut)
+            {
+                return;
+            }
+
+            SaveInGameSettings(settings => settings with
+            {
+                ChatHotkey = shortcut
+            });
+            RefreshOmsiHotkeyConflicts(force: true);
+            RefreshInGameHotkeyStatus();
+        };
+
+        _inGameVoiceHotkeyCombo = BuildInGameCombo();
+        _inGameVoiceHotkeyCombo.ItemsSource = keyOptions;
+        _inGameVoiceHotkeyCombo.DisplayMemberPath = nameof(InGameChoice.Label);
+        _inGameVoiceHotkeyCombo.SelectedValuePath = nameof(InGameChoice.Id);
+        _inGameVoiceHotkeyCombo.SelectionChanged += (_, _) =>
+        {
+            if (_inGameControlsLoading ||
+                _inGameVoiceHotkeyCombo.SelectedValue is not string shortcut)
+            {
+                return;
+            }
+
+            SaveInGameSettings(settings => settings with
+            {
+                VoiceHotkey = shortcut
+            });
+            RefreshOmsiHotkeyConflicts(force: true);
+            RefreshInGameHotkeyStatus();
+        };
+
+        _inGameHotkeyStatusText = BuildInGameStatusText();
+        var keyboardControls = new StackPanel();
+        keyboardControls.Children.Add(BuildInGameSliderLabel(
+            InGameText("Abrir chat", "Open chat", "Abrir chat", "Chat öffnen", "Ouvrir le chat")));
+        keyboardControls.Children.Add(_inGameChatHotkeyCombo);
+        keyboardControls.Children.Add(BuildInGameSliderLabel(
+            InGameText("Segurar para falar (PTT)", "Push-to-talk (PTT)",
+                "Pulsar para hablar", "Push-to-talk", "Appuyer pour parler")));
+        keyboardControls.Children.Add(_inGameVoiceHotkeyCombo);
+        keyboardControls.Children.Add(_inGameHotkeyStatusText);
+        onlineRp.Children.Add(BuildInGameSurfaceCard(
+            InGameText("ATALHOS NO JOGO", "IN-GAME SHORTCUTS",
+                "ATAJOS EN JUEGO", "SPIEL-TASTENKÜRZEL", "RACCOURCIS EN JEU"),
+            InGameText(
+                "Teclas distintas e sem conflito com keyboard.cfg do OMSI",
+                "Distinct keys checked against the OMSI keyboard.cfg",
+                "Teclas distintas comprobadas con keyboard.cfg",
+                "Getrennte Tasten geprüft gegen OMSI keyboard.cfg",
+                "Touches distinctes vérifiées avec keyboard.cfg OMSI"),
+            keyboardControls));
+
         onlineRp.Children.Add(BuildInGameSurfaceCard(
             InGameText(
                 "PERSONAGEM / RP",
@@ -1576,10 +1646,43 @@ public partial class HudOverlayWindow
                     string.Equals(settings.HudSelectionMode, "single", StringComparison.OrdinalIgnoreCase);
             }
             if (_inGamePerformanceCombo is not null) _inGamePerformanceCombo.SelectedValue = settings.PerformanceProfile;
+            if (_inGameChatHotkeyCombo is not null) _inGameChatHotkeyCombo.SelectedValue = settings.ChatHotkey;
+            if (_inGameVoiceHotkeyCombo is not null) _inGameVoiceHotkeyCombo.SelectedValue = settings.VoiceHotkey;
+            RefreshInGameHotkeyStatus();
         }
         finally
         {
             _inGameControlsLoading = false;
+        }
+    }
+
+    private void RefreshInGameHotkeyStatus()
+    {
+        if (_inGameHotkeyStatusText is null)
+        {
+            return;
+        }
+
+        RefreshOmsiHotkeyConflicts();
+        if (!_omsiHotkeyConfigVerified ||
+            !_hotkeysDistinct ||
+            !_chatHotkeyAvailable ||
+            !_voiceHotkeyAvailable)
+        {
+            _inGameHotkeyStatusText.Text = BuildHotkeyConflictMessage();
+            _inGameHotkeyStatusText.Foreground =
+                new SolidColorBrush(Color.FromRgb(255, 189, 116));
+        }
+        else
+        {
+            _inGameHotkeyStatusText.Text = InGameText(
+                "Chat e PTT ativos • combinações livres no OMSI",
+                "Chat and PTT active • no OMSI key conflicts",
+                "Chat y PTT activos • sin conflictos",
+                "Chat und PTT aktiv • keine Tastenkonflikte",
+                "Chat et PTT actifs • aucun conflit");
+            _inGameHotkeyStatusText.Foreground =
+                new SolidColorBrush(Color.FromRgb(116, 235, 204));
         }
     }
 
